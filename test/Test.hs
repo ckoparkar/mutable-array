@@ -10,6 +10,7 @@ import qualified Prelude.Linear as Linear hiding ((>))
 import           Data.Unrestricted.Linear
 
 import qualified Data.Array.Mutable.Primitive as A
+import qualified Data.Array.Mutable.Primitive.Parallel as P
 
 --------------------------------------------------------------------------------
 
@@ -31,6 +32,9 @@ unitTests =
     , split
     , join
     , tsum
+    , parsum
+    , gen
+    , pargen
     ]
   where
     ls = [1,2,3,4] :: [Int]
@@ -93,6 +97,19 @@ unitTests =
       unur (A.fromList ls A.sum)
       @?= sum ls
 
+    parsum = testCase "Parallel sum" $
+      unur (A.fromList (take 3000 ([1..] :: [Int])) A.sum)
+      @?= unur (A.fromList (take 3000 ([1..] :: [Int])) P.sumPar)
+
+    gen = testCase "Generate" $
+      unur (A.generate 4 (*2) A.toList)
+      @?= [0,2,4,6]
+
+    pargen = testCase "Parallel generate" $
+      let m = 3000
+      in unur (P.generatePar m (*2) A.toList)
+         @?= unur (A.generate m (*2) A.toList)
+
 
 propTests =
   testGroup "Property tests"
@@ -106,6 +123,9 @@ propTests =
     , split
     , join
     , tsum
+    , parsum
+    , gen
+    , pargen
     ]
   where
     allocAndGet = testProperty "Alloc, get"  $
@@ -177,8 +197,24 @@ propTests =
 
     tsum = testProperty "Sum" $
       \((NonEmpty ls) :: NonEmptyList Int) ->
-        unur (A.fromList ls A.sum) === sum ls
+        unur (A.fromList ls A.sum)
+        === sum ls
 
+    parsum = testProperty "Parallel sum" $
+      \((NonEmpty ls) :: NonEmptyList Int) ->
+        unur (A.fromList ls A.sum)
+        === unur (A.fromList ls P.sumPar)
+
+    gen = testProperty "Generate" $
+      \((NonNegative n) :: NonNegative Int) ->
+        unur (A.generate n (*2) A.toList)
+        === map (*2) [0..n-1]
+
+    pargen = testProperty "Parallel generate" $
+      \((NonNegative n) :: NonNegative Int) ->
+        let m = 3000+n in
+          unur (P.generatePar m (*2) A.toList)
+          === unur (A.generate m (*2) A.toList)
 
 setN :: A.Array Int %1-> Int -> Int -> Int -> A.Array Int
 setN arr i x n

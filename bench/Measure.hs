@@ -3,11 +3,11 @@
 
 module Measure ( run, bench ) where
 
-import Control.Exception (evaluate)
-import Control.DeepSeq
+import Control.Exception ( evaluate )
+import Control.DeepSeq ( NFData(..), ($!!), force )
 import Data.List ( sort )
-import System.Mem (performMajorGC)
-import Data.Time.Clock (getCurrentTime, diffUTCTime)
+import System.Mem ( performMajorGC )
+import Data.Time.Clock ( getCurrentTime, diffUTCTime )
 
 --------------------------------------------------------------------------------
 
@@ -34,7 +34,7 @@ bench f arg iters = do
     let (results, times) = unzip tups
     let selftimed = median times
         batchtime = sum times
-    return $! (last results, selftimed, batchtime)
+    return $!! (last results, selftimed, batchtime)
 
 {-# NOINLINE dotrial #-}
 dotrial :: (NFData a, Show b, NFData b) => (a %n-> b) -> a -> IO (b, Double)
@@ -45,4 +45,4 @@ dotrial f arg = do
     t2 <- getCurrentTime
     let delt = fromRational (toRational (diffUTCTime t2 t1))
     putStrLn ("iter time: " ++ show delt)
-    return $! (a,delt)
+    return $!! (a,delt)

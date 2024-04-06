@@ -24,6 +24,9 @@ import qualified Data.Array.Mutable.Primitive as A
 
 --------------------------------------------------------------------------------
 
+iters :: Int
+iters = 3
+
 bSumArray :: forall a. (Show a, Random a, NFData a, Num a, A.Prim a) =>
              Proxy a -> Int -> IO Benchmark
 bSumArray _ty size = do
@@ -32,18 +35,31 @@ bSumArray _ty size = do
       !input = force (unur (A.fromList ls (Unsafe.toLinear Ur)))
   forM_ [ ("Seq sum array", (unur Linear.. A.sum))
         , ("Par sum array", (unur Linear.. P.sumPar))
-        , ("Par sum array", (unur Linear.. (Unsafe.toLinear Par.runPar) Linear.. P.sumParM))
+        , ("ParM sum array", (unur Linear.. (Unsafe.toLinear Par.runPar) Linear.. P.sumParM))
         ] $
-    \(msg,f) -> M.run M.bench msg f input size 9
-  let critbench = bgroup "Criterion benchmarks"
-        [ bench "Seq sum array" (nf (\a -> unur (A.sum a)) input)
-        , bench "Par sum array" (nf (\a -> unur (P.sumPar a)) input)
-        , bench "Par sum array" (nf (\a -> unur ((Unsafe.toLinear Par.runPar) (P.sumParM a))) input)
+    \(msg,f) -> M.run M.bench msg f input size iters
+  let critbench = bgroup "Bench sum array"
+        [ bench "Seq" (nf (\a -> unur (A.sum a)) input)
+        , bench "Par" (nf (\a -> unur (P.sumPar a)) input)
+        , bench "ParM" (nf (\a -> unur ((Unsafe.toLinear Par.runPar) (P.sumParM a))) input)
         ]
   pure critbench
 
+bGenArray :: forall a. (Show a, Random a, NFData a, Num a, A.Prim a) =>
+             Proxy a -> Int -> IO Benchmark
+bGenArray _ty size = do
+  let !input = force size
+  forM_ [ ("Seq gen array", (\n -> unur (A.generate n (*2) (Unsafe.toLinear Ur))))
+        , ("Par gen array", (\n -> unur (P.generatePar n (*2) (Unsafe.toLinear Ur))))
+        ] $
+    \(msg,f) -> M.run M.bench msg f input size iters
+  let critbench = bgroup "Bench gen array"
+        [ bench "Seq" (nf (\n -> unur (A.generate n (*2) (Unsafe.toLinear Ur))) input)
+        , bench "Par" (nf (\n -> unur (P.generatePar n (*2) (Unsafe.toLinear Ur))) input)
+        ]
+  pure critbench
 
-data Benchmarks = SumArray
+data Benchmarks = SumArray | GenArray
   deriving (Eq, Show, Read)
 
 main :: IO ()
@@ -61,4 +77,5 @@ main = do
   runbench <-
     case benchmark of
       SumArray -> bSumArray (Proxy :: Proxy Int64) size
+      GenArray -> bGenArray (Proxy :: Proxy Int64) size
   withArgs rst $ defaultMain [ runbench ]

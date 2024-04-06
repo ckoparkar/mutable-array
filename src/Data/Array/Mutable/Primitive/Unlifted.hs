@@ -4,7 +4,6 @@
 {-# LANGUAGE MagicHash            #-}
 {-# LANGUAGE LinearTypes          #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE ConstraintKinds      #-}
 
 module Data.Array.Mutable.Primitive.Unlifted where
 

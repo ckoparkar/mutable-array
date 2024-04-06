@@ -1,6 +1,7 @@
-{-# LANGUAGE MagicHash    #-}
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE LinearTypes  #-}
+{-# LANGUAGE MagicHash           #-}
+{-# LANGUAGE BangPatterns        #-}
+{-# LANGUAGE LinearTypes         #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Data.Array.Mutable.Primitive
   ( module Data.Array.Mutable.Primitive
@@ -137,8 +138,8 @@ splitMid = Unsafe.toLinear go
   where
     go xs =
       let (Ur n, xs1) = size xs
-          m = n `div` 2
-      in splitAt xs1 m
+          h = n `div` 2
+      in splitAt xs1 h
 
 {-# INLINE join #-}
 {-# INLINE unsafeJoin #-}
@@ -188,12 +189,23 @@ toList = Unsafe.toLinear go
 
 --------------------------------------------------------------------------------
 
-{-# INLINE sum #-}
 sum :: (Num a, P.Prim a) => Array a %1-> Ur a
-sum a0 = size a0 Linear.& \(Ur n, a1) -> (go a1 0 n 0)
+sum a0 = size a0 Linear.& \(Ur !n, a1) -> (go a1 0 n 0)
   where
     go :: (Num a, P.Prim a) => Array a %1 -> Int -> Int -> a -> Ur a
-    go xs0 i n acc
+    go xs0 !i n !acc
       | i == n    = xs0 `lseq` Ur acc
       | otherwise = unsafeGet xs0 i Linear.&
-                    \(Ur xi, xs1) -> go xs1 (i+1) n (acc+xi)
+                    \(Ur !xi, xs1) -> go xs1 (i+1) n (acc+xi)
+
+{-# INLINE generate #-}
+generate :: (Num a, P.Prim a) => Int -> (Int -> a) -> (Array a %1-> Ur b) %1-> Ur b
+generate n g f = f (generate' m 0 g (makeNoFill m))
+  where
+    m = n `max` 0
+
+{-# INLINE generate' #-}
+generate' :: (Num a, P.Prim a) => Int -> Int -> (Int -> a) -> Array a -> Array a
+generate' !m !off g = go 0
+  where
+    go !i arr = if i == m then arr else go (i+1) (unsafeSet arr i (g (i+off)))
