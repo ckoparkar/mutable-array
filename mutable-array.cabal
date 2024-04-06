@@ -1,0 +1,53 @@
+cabal-version:      2.2
+name:               mutable-array
+version:            0.1
+synopsis:           Mutable arrays.
+description:        Mutable arrays similar to linear-base with
+                    efficient (but unsafe) splits and joins.
+license:            BSD-3-Clause
+license-file:       LICENSE
+category:           Data
+build-type:         Simple
+extra-doc-files:    CHANGELOG.md
+
+common base
+    ghc-options:      -Wall -Wcompat
+    default-language: Haskell2010
+    build-depends:    base >= 4.15 && < 5
+
+library
+    import:           base
+    exposed-modules:  Data.Array.Mutable.Primitive
+                      Data.Array.Mutable.Primitive.Unlifted
+                      Data.Array.Mutable.Primitive.Parallel
+    build-depends:    primitive
+                    , deepseq
+                    , linear-base
+                    , monad-par
+    hs-source-dirs:   src
+
+test-suite test-mutable-array
+    import:           base
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   test
+    main-is:          Test.hs
+    build-depends:    mutable-array
+                    , linear-base
+                    , tasty
+                    , tasty-hunit
+                    , tasty-quickcheck
+
+benchmark bench-mutable-array
+    import:           base
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   bench
+    main-is:          Bench.hs
+    other-modules:    Measure
+    build-depends:    mutable-array
+                    , criterion
+                    , random
+                    , deepseq
+                    , split
+                    , time
+                    , linear-base
+                    , monad-par
