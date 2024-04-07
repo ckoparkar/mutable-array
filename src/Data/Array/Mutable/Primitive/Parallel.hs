@@ -50,3 +50,19 @@ generatePar n g f = f (go 0 (A.makeNoFill (n `max` 0)))
               genl = go off sl
               genr = go (off+h) sr
           in genl `par` genr `pseq` (A.join genl genr)
+
+generateParM :: forall a b. (Num a, A.Prim a) => Int -> (Int -> a)
+             -> (A.Array a %1-> Par.Par (Ur b)) %1-> Par.Par (Ur b)
+generateParM n g = Unsafe.toLinear go2
+  where
+    go2 :: (A.Array a %1-> Par.Par (Ur b)) -> Par.Par (Ur b)
+    go2 f = (\x -> f x) =<< (go 0 (A.makeNoFill (n `max` 0)))
+    go off a0 =
+      let (Ur !m, a1) = A.size a0 in
+        if m <= 2048 then pure (A.generate' m off g a1) else
+          let h = m `div` 2
+              (sl,sr,_a2) = A.splitAt a1 h in
+            do genl_f <- Par.spawn_ $ go off sl
+               genr <- go (off+h) sr
+               genl <- Par.get genl_f
+               pure $ A.join genl genr
