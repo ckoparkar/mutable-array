@@ -25,6 +25,7 @@ library
                     , linear-base
                     , monad-par
     hs-source-dirs:   src
+    ghc-options:      -O2
 
 test-suite test-mutable-array
     import:           base
@@ -51,3 +52,4 @@ benchmark bench-mutable-array
                     , time
                     , linear-base
                     , monad-par
+    ghc-options:      -O2 -threaded "-with-rtsopts=-N"
