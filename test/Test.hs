@@ -7,6 +7,7 @@ import           Test.Tasty ( TestTree, testGroup, defaultMain )
 import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck
 import qualified Prelude.Linear as Linear hiding ((>))
+import qualified Unsafe.Linear as Unsafe
 import           Data.Unrestricted.Linear
 
 import qualified Data.Array.Mutable.Primitive as A
@@ -35,6 +36,7 @@ unitTests =
     , parsum
     , gen
     , pargen
+    , fold
     ]
   where
     ls = [1,2,3,4] :: [Int]
@@ -110,6 +112,9 @@ unitTests =
       in unur (P.generatePar m (*2) A.toList)
          @?= unur (A.generate m (*2) A.toList)
 
+    fold = testCase "Fold" $
+      unur (A.fromList ls (A.foldl (Unsafe.toLinear2 (+)) 0))
+      @?= sum ls
 
 propTests =
   testGroup "Property tests"
@@ -126,6 +131,7 @@ propTests =
     , parsum
     , gen
     , pargen
+    , fold
     ]
   where
     allocAndGet = testProperty "Alloc, get"  $
@@ -215,6 +221,11 @@ propTests =
         let m = 3000+n in
           unur (P.generatePar m (*2) A.toList)
           === unur (A.generate m (*2) A.toList)
+
+    fold = testProperty "Fold" $
+      \((NonEmpty ls) :: NonEmptyList Int) ->
+        unur (A.fromList ls (A.foldl (Unsafe.toLinear2 (+)) 0))
+        === sum ls
 
 setN :: A.Array Int %1-> Int -> Int -> Int -> A.Array Int
 setN arr i x n

@@ -27,7 +27,7 @@ import qualified Data.Array.Mutable.Primitive as A
 iters :: Int
 iters = 5
 
-bSumArray :: forall a. (Show a, Random a, NFData a, Num a, A.Prim a) =>
+bSumArray :: forall a. (Show a, Random a, NFData a, Num a, A.Elt a) =>
              Proxy a -> Int -> IO Benchmark
 bSumArray _ty size = do
   rng <- newStdGen
@@ -45,7 +45,7 @@ bSumArray _ty size = do
         ]
   pure critbench
 
-bGenArray :: forall a. (Show a, Random a, NFData a, Num a, A.Prim a) =>
+bGenArray :: forall a. (Show a, Random a, NFData a, Num a, A.Elt a) =>
              Proxy a -> Int -> IO Benchmark
 bGenArray _ty size = do
   let !input = force size

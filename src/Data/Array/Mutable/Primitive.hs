@@ -2,13 +2,15 @@
 {-# LANGUAGE BangPatterns        #-}
 {-# LANGUAGE LinearTypes         #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ConstraintKinds     #-}
 
 module Data.Array.Mutable.Primitive
   ( module Data.Array.Mutable.Primitive
   , P.Prim
   ) where
 
-import           Prelude hiding ( splitAt, sum )
+import           Prelude hiding ( splitAt, sum, foldl )
+import qualified Prelude as GHC
 import qualified GHC.Exts as GHC
 import           Control.DeepSeq ( NFData(..) )
 import           Data.Unrestricted.Linear ( Ur(..), unur, Consumable(..), lseq )
@@ -28,6 +30,8 @@ data Array a = Array { _lo  :: {-# UNPACK #-} !Int
                      , _arr ::                !(Array# a)
                      }
 
+type Elt a = (P.Prim a)
+
 instance (Show a, P.Prim a) => Show (Array a) where
   show a@(Array lo hi _arr) =
     "Array { lower = " ++ show lo ++ ", upper = " ++ show hi ++ ", arr = " ++
@@ -38,6 +42,8 @@ instance NFData a => NFData (Array a) where
 
 instance Consumable (Array a) where
   consume (Array i j arr) = i `lseq` j `lseq` arr `Unlifted.lseq` ()
+
+--------------------------------------------------------------------------------
 
 {-# INLINE alloc #-}
 alloc :: P.Prim a => Int -> a -> (Array a %1-> Ur b) %1-> Ur b
@@ -177,7 +183,7 @@ swap = Unsafe.toLinear go
 fromList :: P.Prim a => [a] -> (Array a %1-> Ur b) %1-> Ur b
 fromList ls f =
   let arr = makeNoFill (length ls)
-  in f (foldl (\acc (i,x) -> set acc i x) arr (zip [0..] ls))
+  in f (GHC.foldl (\acc (i,x) -> set acc i x) arr (zip [0..] ls))
 
 {-# INLINE toList #-}
 toList :: P.Prim a => Array a %1-> Ur [a]
@@ -189,6 +195,7 @@ toList = Unsafe.toLinear go
 
 --------------------------------------------------------------------------------
 
+{-# INLINE sum #-}
 sum :: (Num a, P.Prim a) => Array a %1-> Ur a
 sum a0 = size a0 Linear.& \(Ur !n, a1) -> (go a1 0 n 0)
   where
@@ -208,4 +215,19 @@ generate n g f = f (generate' m 0 g (makeNoFill m))
 generate' :: (Num a, P.Prim a) => Int -> Int -> (Int -> a) -> Array a -> Array a
 generate' !m !off g = go 0
   where
-    go !i arr = if i == m then arr else go (i+1) (unsafeSet arr i (g (i+off)))
+    go !i arr
+      | i == m    = arr
+      | otherwise = go (i+1) (unsafeSet arr i (g (i+off)))
+
+{-# INLINE foldl #-}
+foldl :: forall a b. P.Prim a => (b -> a %1-> b) -> b %1-> Array a %1-> Ur b
+foldl f = Unsafe.toLinear2 go2
+  where
+    go2 acc arr0 =
+      let (Ur n, arr1) = size arr0
+      in Ur (go arr1 acc 0 n)
+    go arr0 acc0 !i !n
+      | i == n    = acc0
+      | otherwise = let (Ur xi, arr1) = unsafeGet arr0 i
+                        acc1 = f acc0 xi
+                    in go arr1 acc1 (i+1) n
