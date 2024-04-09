@@ -69,6 +69,12 @@ size# (Array# arr) =
   case GHC.runRW# (GHC.getSizeofMutableByteArray# arr) of
     (# _, sz #) -> sz
 
+{-# NOINLINE dup2# #-}
+dup2# :: P.Prim a => Array# a -> GHC.Int# -> (# Array# a, Array# a #)
+dup2# old n =
+  let new = makeNoFill# n
+  in (# old, copy# old 0# new 0# n #)
+
 --------------------------------------------------------------------------------
 
 {-# INLINE toList# #-}

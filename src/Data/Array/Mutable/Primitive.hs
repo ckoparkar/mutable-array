@@ -3,6 +3,7 @@
 {-# LANGUAGE LinearTypes         #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE UnboxedTuples       #-}
 
 module Data.Array.Mutable.Primitive
   ( module Data.Array.Mutable.Primitive
@@ -13,7 +14,8 @@ import           Prelude hiding ( splitAt, sum, foldl )
 import qualified Prelude as GHC
 import qualified GHC.Exts as GHC
 import           Control.DeepSeq ( NFData(..) )
-import           Data.Unrestricted.Linear ( Ur(..), unur, Consumable(..), lseq )
+import           Data.Unrestricted.Linear ( Ur(..), unur, Consumable(..), lseq
+                                          , Dupable(..))
 import qualified Unsafe.Linear as Unsafe
 import qualified Prelude.Linear as Linear
 import qualified Data.Primitive.Types as P
@@ -42,6 +44,14 @@ instance NFData a => NFData (Array a) where
 
 instance Consumable (Array a) where
   consume (Array i j arr) = i `lseq` j `lseq` arr `Unlifted.lseq` ()
+
+instance (P.Prim a) => Dupable (Array a) where
+  dup2 = Unsafe.toLinear go
+    where
+      go (Array lo hi old) =
+        let !(GHC.I# n#) = (hi-lo) in
+        case Unlifted.dup2# old n# of
+          (# old1, new #) -> (Array lo hi old1, Array lo hi new)
 
 --------------------------------------------------------------------------------
 
