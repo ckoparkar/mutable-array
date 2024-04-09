@@ -6,8 +6,24 @@
 {-# LANGUAGE UnboxedTuples       #-}
 
 module Data.Array.Mutable.Primitive
-  ( module Data.Array.Mutable.Primitive
-  , P.Prim
+  ( -- * Mutable array type and a constraint on its elements
+    Array, Elt
+
+    -- * Construction
+  , alloc, allocNoFill, generate, copy, fromList, toList
+
+    -- * Get and set
+  , size, get, unsafeGet, set, unsafeSet, swap
+
+    -- * Split/join sub-arrays
+  , slice, splitAt, splitMid, join, unsafeJoin
+
+    -- * Operations on arrays
+  , sum, foldl
+
+    -- * Internal
+  , generate', make, makeNoFill
+
   ) where
 
 import           Prelude hiding ( splitAt, sum, foldl )
@@ -27,9 +43,9 @@ import qualified Data.Array.Mutable.Primitive.Unlifted as Unlifted
 -- Mutable, lifted array API
 --------------------------------------------------------------------------------
 
-data Array a = Array { _lo  :: {-# UNPACK #-} !Int
-                     , _hi  :: {-# UNPACK #-} !Int
-                     , _arr ::                !(Array# a)
+data Array a = Array { _lo  :: {-# UNPACK #-} !Int        {- low index      -}
+                     , _hi  :: {-# UNPACK #-} !Int        {- high index     -}
+                     , _arr ::                !(Array# a) {- backing memory -}
                      }
 
 type Elt a = (P.Prim a)

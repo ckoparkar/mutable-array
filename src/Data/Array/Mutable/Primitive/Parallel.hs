@@ -13,7 +13,7 @@ import qualified Data.Array.Mutable.Primitive as A
 
 --------------------------------------------------------------------------------
 
-sumPar :: (Num a, A.Prim a) => A.Array a %1-> Ur a
+sumPar :: (Num a, A.Elt a) => A.Array a %1-> Ur a
 sumPar = Unsafe.toLinear go2
   where
     go2 a0 = Ur (go a0)
@@ -26,7 +26,7 @@ sumPar = Unsafe.toLinear go2
           in suml `par` sumr `pseq` (suml + sumr)
 
 
-sumParM :: (Num a, A.Prim a) => A.Array a %1-> Par.Par (Ur a)
+sumParM :: (Num a, A.Elt a) => A.Array a %1-> Par.Par (Ur a)
 sumParM = Unsafe.toLinear go2
   where
     go2 a0 = Ur <$> (go a0)
@@ -39,7 +39,7 @@ sumParM = Unsafe.toLinear go2
                   !suml <- Par.get suml_f
                   pure $ (suml + sumr)
 
-generatePar :: (Num a, A.Prim a) => Int -> (Int -> a) -> (A.Array a %1-> Ur b) %1-> Ur b
+generatePar :: (Num a, A.Elt a) => Int -> (Int -> a) -> (A.Array a %1-> Ur b) %1-> Ur b
 generatePar n g f = f (go 0 (A.makeNoFill (n `max` 0)))
   where
     go off a0 =
@@ -51,7 +51,7 @@ generatePar n g f = f (go 0 (A.makeNoFill (n `max` 0)))
               genr = go (off+h) sr
           in genl `par` genr `pseq` (A.join genl genr)
 
-generateParM :: forall a b. (Num a, A.Prim a) => Int -> (Int -> a)
+generateParM :: forall a b. (Num a, A.Elt a) => Int -> (Int -> a)
              -> (A.Array a %1-> Par.Par (Ur b)) %1-> Par.Par (Ur b)
 generateParM n g = Unsafe.toLinear go2
   where
