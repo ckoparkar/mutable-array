@@ -9,8 +9,10 @@ import           Test.Tasty.QuickCheck
 import qualified Prelude.Linear as Linear hiding ((>))
 import qualified Unsafe.Linear as Unsafe
 import           Data.Unrestricted.Linear
+import qualified Data.List as L
 
 import qualified Data.Array.Mutable.Primitive as A
+import qualified Data.Array.Mutable.InsertionSort as Insertion
 import qualified Data.Array.Mutable.Primitive.Parallel as P
 
 --------------------------------------------------------------------------------
@@ -37,6 +39,7 @@ unitTests =
     , gen
     , pargen
     , fold
+    , insertionsort
     ]
   where
     ls = [1,2,3,4] :: [Int]
@@ -116,6 +119,10 @@ unitTests =
       unur (A.fromList ls (A.foldl (Unsafe.toLinear2 (+)) 0))
       @?= sum ls
 
+    insertionsort = testCase "Insertion sort" $
+      unur (A.fromList (reverse ls) (A.toList Linear.. Insertion.sortInplace))
+      @?= ls
+
 propTests =
   testGroup "Property tests"
     [ allocAndGet
@@ -132,6 +139,7 @@ propTests =
     , gen
     , pargen
     , fold
+    , insertionsort
     ]
   where
     allocAndGet = testProperty "Alloc, get"  $
@@ -226,6 +234,12 @@ propTests =
       \((NonEmpty ls) :: NonEmptyList Int) ->
         unur (A.fromList ls (A.foldl (Unsafe.toLinear2 (+)) 0))
         === sum ls
+
+    insertionsort = testProperty "Insertion sort" $
+      \((NonEmpty ls) :: NonEmptyList Int) ->
+        unur (A.fromList ls (A.toList Linear.. Insertion.sortInplace))
+        === L.sort ls
+
 
 setN :: A.Array Int %1-> Int -> Int -> Int -> A.Array Int
 setN arr i x n

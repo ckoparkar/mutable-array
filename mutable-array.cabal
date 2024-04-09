@@ -20,6 +20,7 @@ library
     exposed-modules:  Data.Array.Mutable.Primitive
                       Data.Array.Mutable.Primitive.Unlifted
                       Data.Array.Mutable.Primitive.Parallel
+                      Data.Array.Mutable.InsertionSort
     build-depends:    primitive
                     , deepseq
                     , linear-base
