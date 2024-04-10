@@ -21,6 +21,7 @@ library
                       Data.Array.Mutable.Primitive.Unlifted
                       Data.Array.Mutable.Primitive.Parallel
                       Data.Array.Mutable.InsertionSort
+                      Data.Array.Mutable.MergeSort
     build-depends:    primitive
                     , deepseq
                     , linear-base

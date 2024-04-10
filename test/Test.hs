@@ -13,6 +13,7 @@ import qualified Data.List as L
 
 import qualified Data.Array.Mutable.Primitive as A
 import qualified Data.Array.Mutable.InsertionSort as Insertion
+import qualified Data.Array.Mutable.MergeSort as Merge
 import qualified Data.Array.Mutable.Primitive.Parallel as P
 
 --------------------------------------------------------------------------------
@@ -40,6 +41,7 @@ unitTests =
     , pargen
     , fold
     , insertionsort
+    , mergesort
     ]
   where
     ls = [1,2,3,4] :: [Int]
@@ -123,6 +125,10 @@ unitTests =
       unur (A.fromList (reverse ls) (A.toList Linear.. Insertion.sortInplace))
       @?= ls
 
+    mergesort = testCase "Merge sort" $
+      unur (A.fromList (reverse ls) (A.toList Linear.. Merge.sortInplace))
+      @?= ls
+
 propTests =
   testGroup "Property tests"
     [ allocAndGet
@@ -140,6 +146,7 @@ propTests =
     , pargen
     , fold
     , insertionsort
+    , mergesort
     ]
   where
     allocAndGet = testProperty "Alloc, get"  $
@@ -238,6 +245,11 @@ propTests =
     insertionsort = testProperty "Insertion sort" $
       \((NonEmpty ls) :: NonEmptyList Int) ->
         unur (A.fromList ls (A.toList Linear.. Insertion.sortInplace))
+        === L.sort ls
+
+    mergesort = testProperty "Merge sort" $
+      \((NonEmpty ls) :: NonEmptyList Int) ->
+        unur (A.fromList (reverse ls) (A.toList Linear.. Merge.sortInplace))
         === L.sort ls
 
 
