@@ -11,6 +11,7 @@ module Data.Array.Mutable.Primitive
 
     -- * Construction
   , alloc, allocNoFill, generate, copy, fromList, toList
+  , copyAndGetDst, copyOneAndGetDst
 
     -- * Get and set
   , size, get, unsafeGet, set, unsafeSet, swap
@@ -149,10 +150,13 @@ checkBounds msg i (lo,hi) =
 --------------------------------------------------------------------------------
 
 {-# INLINE slice #-}
-slice :: Array a %1-> Int -> Int -> (Array a, Array a)
+slice :: Array a
+      %1-> Int {- start index -}
+        -> Int {- length -}
+        -> (Array a, Array a)
 slice = Unsafe.toLinear go
   where
-    go a@(Array l _r arr) l' r' = (Array (l+l') (l+r') arr, a)
+    go a@(Array l _r arr) i n = (Array (l+i) (l+i+n) arr, a)
 
 {-# INLINE splitAt #-}
 splitAt :: P.Prim a => Array a %1-> Int -> (Array a, Array a)
@@ -161,7 +165,7 @@ splitAt = Unsafe.toLinear go
     go xs m =
       let (Ur n, xs1) = size xs
           (s1, xs2) = slice xs1 0 m
-          (s2, xs3) = slice xs2 m n
+          (s2, xs3) = slice xs2 m (n-m)
       in xs3 `lseq` (s1, s2)
 
 {-# INLINE splitMid #-}
@@ -257,3 +261,16 @@ foldl f = Unsafe.toLinear2 go2
       | otherwise = let (Ur xi, arr1) = unsafeGet arr0 i
                         acc1 = f acc0 xi
                     in go arr1 acc1 (i+1) n
+
+{-# INLINE copyAndGetDst #-}
+copyAndGetDst :: P.Prim a => (Array a, Array a) %1-> Int -> Int -> Int -> Array a
+copyAndGetDst (src,dst) i j n =
+  copy (src,dst) i j n Linear.&
+  \(src1,dst1) -> src1 `lseq` dst1
+
+{-# INLINE copyOneAndGetDst #-}
+-- This might be more efficient that calling copy, not verified by a benchmark.
+copyOneAndGetDst :: P.Prim a => (Array a, Array a) %1-> Int -> Int -> Array a
+copyOneAndGetDst (src,dst) i j =
+  unsafeGet src i Linear.&
+  \(Ur x, src1) -> src1 `lseq` unsafeSet dst j x

@@ -14,6 +14,7 @@ import qualified Data.List as L
 import qualified Data.Array.Mutable.Primitive as A
 import qualified Data.Array.Mutable.InsertionSort as Insertion
 import qualified Data.Array.Mutable.MergeSort as Merge
+import qualified Data.Array.Mutable.CilkSort as Cilk
 import qualified Data.Array.Mutable.Primitive.Parallel as P
 
 --------------------------------------------------------------------------------
@@ -42,6 +43,7 @@ unitTests =
     , fold
     , insertionsort
     , mergesort
+    , cilksort
     ]
   where
     ls = [1,2,3,4] :: [Int]
@@ -129,6 +131,12 @@ unitTests =
       unur (A.fromList (reverse ls) (A.toList Linear.. Merge.sortInplace))
       @?= ls
 
+    cilksort = testCase "Cilk sort" $
+      let m = 3000
+          ls1 = take m ([1..] :: [Int])
+      in unur (A.fromList (reverse ls1) (A.toList Linear.. Cilk.sortInplacePar))
+         @?= L.sort ls1
+
 propTests =
   testGroup "Property tests"
     [ allocAndGet
@@ -147,6 +155,7 @@ propTests =
     , fold
     , insertionsort
     , mergesort
+    , cilksort
     ]
   where
     allocAndGet = testProperty "Alloc, get"  $
@@ -223,8 +232,9 @@ propTests =
 
     parsum = testProperty "Parallel sum" $
       \((NonEmpty ls) :: NonEmptyList Int) ->
-        unur (A.fromList ls A.sum)
-        === unur (A.fromList ls P.sumPar)
+        let ls1 = take 3000 (cycle ls) in
+          unur (A.fromList ls1 A.sum)
+          === unur (A.fromList ls1 P.sumPar)
 
     gen = testProperty "Generate" $
       \((NonNegative n) :: NonNegative Int) ->
@@ -249,9 +259,14 @@ propTests =
 
     mergesort = testProperty "Merge sort" $
       \((NonEmpty ls) :: NonEmptyList Int) ->
-        unur (A.fromList (reverse ls) (A.toList Linear.. Merge.sortInplace))
+        unur (A.fromList ls (A.toList Linear.. Merge.sortInplace))
         === L.sort ls
 
+    cilksort = testProperty "Cilk sort" $
+      \((NonEmpty ls) :: NonEmptyList Int) ->
+        let ls1 = take 3000 (cycle ls) in
+          unur (A.fromList ls1 (A.toList Linear.. Cilk.sortInplacePar))
+          === L.sort ls1
 
 setN :: A.Array Int %1-> Int -> Int -> Int -> A.Array Int
 setN arr i x n

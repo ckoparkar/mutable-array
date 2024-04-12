@@ -29,7 +29,7 @@ writeSort1 src tmp =
 
 writeSort2 src tmp =
   let (Ur !n, src1) = A.size src in
-    if n == 1 then copyOneAndGetDst (src1, tmp) 0 0 else
+    if n == 1 then A.copyOneAndGetDst (src1, tmp) 0 0 else
       let (src_l, src_r) = A.splitMid src
           (tmp_l, tmp_r) = A.splitMid tmp
           src_l1 = writeSort1 src_l tmp_l
@@ -44,25 +44,12 @@ writeMerge left0 right0 = go 0 0 0
 
     go !il !ir !j dst
       | il == nl =
-        copyAndGetDst (right, dst) ir j (nr-ir)
+        A.copyAndGetDst (right, dst) ir j (nr-ir)
       | ir == nr =
-        copyAndGetDst (left, dst) il j (nl-il)
+        A.copyAndGetDst (left, dst) il j (nl-il)
       | otherwise =
         let (Ur xl, _) = A.unsafeGet left il
             (Ur xr, _) = A.unsafeGet right ir
         in if xl `compare` xr == LT
            then go (il+1) ir (j+1) (A.unsafeSet dst j xl)
            else go il (ir+1) (j+1) (A.unsafeSet dst j xr)
-
---------------------------------------------------------------------------------
-
-copyAndGetDst :: A.Elt a => (A.Array a, A.Array a) %1-> Int -> Int -> Int -> A.Array a
-copyAndGetDst (src,dst) i j n =
-  A.copy (src,dst) i j n Linear.&
-  \(src1,dst1) -> src1 `lseq` dst1
-
--- This might be more efficient that calling copy, not verified by a benchmark.
-copyOneAndGetDst :: A.Elt a => (A.Array a, A.Array a) %1-> Int -> Int -> A.Array a
-copyOneAndGetDst (src,dst) i j =
-  A.unsafeGet src i Linear.&
-  \(Ur x, src1) -> src1 `lseq` A.set dst j x
