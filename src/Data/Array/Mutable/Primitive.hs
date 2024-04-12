@@ -155,17 +155,17 @@ slice = Unsafe.toLinear go
     go a@(Array l _r arr) l' r' = (Array (l+l') (l+r') arr, a)
 
 {-# INLINE splitAt #-}
-splitAt :: P.Prim a => Array a %1-> Int -> (Array a, Array a, Array a)
+splitAt :: P.Prim a => Array a %1-> Int -> (Array a, Array a)
 splitAt = Unsafe.toLinear go
   where
     go xs m =
       let (Ur n, xs1) = size xs
           (s1, xs2) = slice xs1 0 m
           (s2, xs3) = slice xs2 m n
-      in (s1, s2, xs3)
+      in xs3 `lseq` (s1, s2)
 
 {-# INLINE splitMid #-}
-splitMid :: P.Prim a => Array a %1-> (Array a, Array a, Array a)
+splitMid :: P.Prim a => Array a %1-> (Array a, Array a)
 splitMid = Unsafe.toLinear go
   where
     go xs =

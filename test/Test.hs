@@ -71,9 +71,9 @@ unitTests =
         unur (A.fromList ls
                (\src -> A.allocNoFill (length ls)
                  (\dst -> A.splitAt src m Linear.&
-                  \(sl,sr,src1) -> src1 `lseq` A.copy (sl,dst) 0 0 m     Linear.&
-                  \(sl1,dst1)   -> sl1 `lseq` A.copy (sr,dst1) 0 m (n-m) Linear.&
-                  \(sr1,dst2)   -> sr1 `lseq` A.toList dst2)))
+                  \(sl,sr)    -> A.copy (sl,dst) 0 0 m     Linear.&
+                  \(sl1,dst1) -> sl1 `lseq` A.copy (sr,dst1) 0 m (n-m) Linear.&
+                  \(sr1,dst2) -> sr1 `lseq` A.toList dst2)))
         @?= ls
 
     swap = testCase "Swap" $
@@ -88,13 +88,13 @@ unitTests =
 
     split = testCase "Split" $
       unur (A.fromList ls (\a0 -> A.splitMid a0                                Linear.&
-                           \(sl,sr,a1) -> a1 `lseq` (A.toList sl, A.toList sr) Linear.&
+                           \(sl,sr) -> (A.toList sl, A.toList sr) Linear.&
                            \(Ur a, Ur b) -> Ur (a,b)))
       @?= ([1,2], [3,4])
 
     join = testCase "Join" $
       unur (A.fromList ls (\a0 -> A.splitMid a0                  Linear.&
-                           \(sl,sr,a1) -> a1 `lseq` A.join sl sr Linear.&
+                           \(sl,sr) -> A.join sl sr Linear.&
                            A.toList))
       @?= ls
 
@@ -176,9 +176,9 @@ propTests =
           unur (A.fromList ls
                 (\src -> A.allocNoFill (length ls)
                   (\dst -> A.splitAt src m Linear.&
-                   \(sl,sr,src1) -> src1 `lseq` A.copy (sl,dst) 0 0 m     Linear.&
-                   \(sl1,dst1)   -> sl1 `lseq` A.copy (sr,dst1) 0 m (n-m) Linear.&
-                   \(sr1,dst2)   -> sr1 `lseq` A.toList dst2)))
+                   \(sl,sr)    ->  A.copy (sl,dst) 0 0 m     Linear.&
+                   \(sl1,dst1) -> sl1 `lseq` A.copy (sr,dst1) 0 m (n-m) Linear.&
+                   \(sr1,dst2) -> sr1 `lseq` A.toList dst2)))
           === ls
 
     swap = testProperty "Swap" $
@@ -197,7 +197,7 @@ propTests =
       \((NonNegative n) :: NonNegative Int) ->
         let ls = [0..n] :: [Int] in
           unur (A.fromList ls (\a0 -> A.splitMid a0                                Linear.&
-                               \(sl,sr,a1) -> a1 `lseq` (A.toList sl, A.toList sr) Linear.&
+                               \(sl,sr) -> (A.toList sl, A.toList sr) Linear.&
                                \(Ur a, Ur b) -> Ur (a,b)))
           === splitAt ((n+1) `div` 2) ls
 
@@ -205,7 +205,7 @@ propTests =
       \((NonNegative n) :: NonNegative Int) ->
         let ls = [0..n] :: [Int] in
           unur (A.fromList ls (\a0 -> A.splitMid a0                  Linear.&
-                               \(sl,sr,a1) -> a1 `lseq` A.join sl sr Linear.&
+                               \(sl,sr) -> A.join sl sr Linear.&
                                A.toList ))
           === ls
 

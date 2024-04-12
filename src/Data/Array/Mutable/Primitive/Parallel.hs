@@ -20,7 +20,7 @@ sumPar = Unsafe.toLinear go2
     go a0 =
       let (Ur !n, a1) = A.size a0 in
         if n <= 2048 then unur (A.sum a1) else
-          let (sl,sr,_a2) = A.splitMid a1
+          let (sl,sr) = A.splitMid a1
               suml = go sl
               sumr = go sr
           in suml `par` sumr `pseq` (suml + sumr)
@@ -33,7 +33,7 @@ sumParM = Unsafe.toLinear go2
     go a0 =
       let (Ur !n, a1) = A.size a0 in
         if n <= 2048 then pure (unur (A.sum a1))
-        else let (sl,sr,_a2) = A.splitMid a1 in
+        else let (sl,sr) = A.splitMid a1 in
                do suml_f <- Par.spawn_ $ go sl
                   !sumr <- go sr
                   !suml <- Par.get suml_f
@@ -46,7 +46,7 @@ generatePar n g f = f (go 0 (A.makeNoFill (n `max` 0)))
       let (Ur !m, a1) = A.size a0 in
         if m <= 2048 then (A.generate' m off g a1) else
           let h = m `div` 2
-              (sl,sr,_a2) = A.splitAt a1 h
+              (sl,sr) = A.splitAt a1 h
               genl = go off sl
               genr = go (off+h) sr
           in genl `par` genr `pseq` (A.join genl genr)
@@ -61,7 +61,7 @@ generateParM n g = Unsafe.toLinear go2
       let (Ur !m, a1) = A.size a0 in
         if m <= 2048 then pure (A.generate' m off g a1) else
           let h = m `div` 2
-              (sl,sr,_a2) = A.splitAt a1 h in
+              (sl,sr) = A.splitAt a1 h in
             do genl_f <- Par.spawn_ $ go off sl
                genr <- go (off+h) sr
                genl <- Par.get genl_f
