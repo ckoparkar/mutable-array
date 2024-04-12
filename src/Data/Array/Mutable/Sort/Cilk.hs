@@ -1,13 +1,14 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LinearTypes  #-}
 
-module Data.Array.Mutable.CilkSort ( sortInplace, sortInplacePar ) where
+module Data.Array.Mutable.Sort.Cilk ( sortInplace, sortInplacePar ) where
 
-import           GHC.Conc ( par, pseq )
 import           Data.Unrestricted.Linear ( Ur(..) )
 import qualified Unsafe.Linear as Unsafe
+
 import qualified Data.Array.Mutable.Primitive as A
-import qualified Data.Array.Mutable.InsertionSort as Insertion
+import qualified Data.Array.Mutable.Sort.Insertion as Insertion
+import qualified Data.Array.Mutable.Prelude as A
 
 --------------------------------------------------------------------------------
 

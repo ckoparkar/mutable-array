@@ -11,11 +11,12 @@ import qualified Unsafe.Linear as Unsafe
 import           Data.Unrestricted.Linear
 import qualified Data.List as L
 
+import qualified Data.Array.Mutable.Prelude as A
 import qualified Data.Array.Mutable.Primitive as A
-import qualified Data.Array.Mutable.InsertionSort as Insertion
-import qualified Data.Array.Mutable.MergeSort as Merge
-import qualified Data.Array.Mutable.CilkSort as Cilk
-import qualified Data.Array.Mutable.Primitive.Parallel as P
+import qualified Data.Array.Mutable.Sort.Insertion as Insertion
+import qualified Data.Array.Mutable.Sort.Merge as Merge
+import qualified Data.Array.Mutable.Sort.Cilk as Cilk
+import qualified Data.Array.Mutable.Parallel as P
 
 --------------------------------------------------------------------------------
 

@@ -2,7 +2,7 @@
 {-# LANGUAGE BangPatterns        #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Data.Array.Mutable.Primitive.Parallel where
+module Data.Array.Mutable.Parallel where
 
 import           GHC.Conc ( par, pseq )
 import           Data.Unrestricted.Linear
@@ -10,6 +10,7 @@ import qualified Unsafe.Linear as Unsafe
 import qualified Control.Monad.Par as Par (Par, spawn_, get)
 
 import qualified Data.Array.Mutable.Primitive as A
+import qualified Data.Array.Mutable.Prelude as A
 
 --------------------------------------------------------------------------------
 

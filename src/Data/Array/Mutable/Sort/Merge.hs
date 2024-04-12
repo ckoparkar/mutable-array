@@ -1,12 +1,13 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LinearTypes  #-}
 
-module Data.Array.Mutable.MergeSort ( sortInplace ) where
+module Data.Array.Mutable.Sort.Merge ( sortInplace ) where
 
-import           Data.Unrestricted.Linear ( Ur(..), lseq )
+import           Data.Unrestricted.Linear ( Ur(..) )
 import qualified Unsafe.Linear as Unsafe
-import qualified Prelude.Linear as Linear
+
 import qualified Data.Array.Mutable.Primitive as A
+import qualified Data.Array.Mutable.Prelude as A
 
 --------------------------------------------------------------------------------
 

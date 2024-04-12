@@ -19,8 +19,9 @@ import            Control.Monad ( forM_ )
 import qualified Control.Monad.Par as Par ( runPar )
 
 import qualified Measure as M
-import qualified Data.Array.Mutable.Primitive.Parallel as P
+import qualified Data.Array.Mutable.Parallel as P
 import qualified Data.Array.Mutable.Primitive as A
+import qualified Data.Array.Mutable.Prelude as A
 
 --------------------------------------------------------------------------------
 

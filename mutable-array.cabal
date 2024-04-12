@@ -19,10 +19,11 @@ library
     import:           base
     exposed-modules:  Data.Array.Mutable.Primitive
                       Data.Array.Mutable.Primitive.Unlifted
-                      Data.Array.Mutable.Primitive.Parallel
-                      Data.Array.Mutable.InsertionSort
-                      Data.Array.Mutable.MergeSort
-                      Data.Array.Mutable.CilkSort
+                      Data.Array.Mutable.Prelude
+                      Data.Array.Mutable.Parallel
+                      Data.Array.Mutable.Sort.Insertion
+                      Data.Array.Mutable.Sort.Merge
+                      Data.Array.Mutable.Sort.Cilk
     build-depends:    primitive
                     , deepseq
                     , linear-base

@@ -2,11 +2,13 @@
 {-# LANGUAGE LinearTypes         #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Data.Array.Mutable.InsertionSort ( sortInplace ) where
+module Data.Array.Mutable.Sort.Insertion ( sortInplace ) where
 
 import           Data.Unrestricted.Linear ( Ur(..) )
 import qualified Unsafe.Linear as Unsafe
+
 import qualified Data.Array.Mutable.Primitive as A
+import qualified Data.Array.Mutable.Prelude as A
 
 --------------------------------------------------------------------------------
 

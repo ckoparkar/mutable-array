@@ -1,40 +1,33 @@
 {-# LANGUAGE MagicHash           #-}
 {-# LANGUAGE BangPatterns        #-}
 {-# LANGUAGE LinearTypes         #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE UnboxedTuples       #-}
 
 module Data.Array.Mutable.Primitive
-  ( -- * Mutable array type and a constraint on its elements
+  (
+    -- * Mutable array type and a constraint on its elements
     Array, Elt
 
     -- * Construction
-  , alloc, allocNoFill, generate, copy, fromList, toList
-  , copyAndGetDst, copyOneAndGetDst
+  , alloc, allocNoFill, copy, fromList, toList
 
     -- * Get and set
-  , size, get, unsafeGet, set, unsafeSet, swap
+  , size, get, unsafeGet, set, unsafeSet
 
     -- * Split/join sub-arrays
-  , slice, splitAt, splitMid, join, unsafeJoin
-
-    -- * Operations on arrays
-  , sum, foldl
+  , slice, join, unsafeJoin
 
     -- * Internal
-  , generate', make, makeNoFill
+  , make, makeNoFill
 
   ) where
 
-import           Prelude hiding ( splitAt, sum, foldl )
-import qualified Prelude as GHC
 import qualified GHC.Exts as GHC
 import           Control.DeepSeq ( NFData(..) )
 import           Data.Unrestricted.Linear ( Ur(..), unur, Consumable(..), lseq
                                           , Dupable(..))
 import qualified Unsafe.Linear as Unsafe
-import qualified Prelude.Linear as Linear
 import qualified Data.Primitive.Types as P
 
 import           Data.Array.Mutable.Primitive.Unlifted hiding ( lseq )
@@ -158,25 +151,6 @@ slice = Unsafe.toLinear go
   where
     go a@(Array l _r arr) i n = (Array (l+i) (l+i+n) arr, a)
 
-{-# INLINE splitAt #-}
-splitAt :: P.Prim a => Array a %1-> Int -> (Array a, Array a)
-splitAt = Unsafe.toLinear go
-  where
-    go xs m =
-      let (Ur n, xs1) = size xs
-          (s1, xs2) = slice xs1 0 m
-          (s2, xs3) = slice xs2 m (n-m)
-      in xs3 `lseq` (s1, s2)
-
-{-# INLINE splitMid #-}
-splitMid :: P.Prim a => Array a %1-> (Array a, Array a)
-splitMid = Unsafe.toLinear go
-  where
-    go xs =
-      let (Ur n, xs1) = size xs
-          h = n `div` 2
-      in splitAt xs1 h
-
 {-# INLINE join #-}
 {-# INLINE unsafeJoin #-}
 -- | PRE-CONDITION: the two slices are backed by the same array and should be contiguous.
@@ -198,79 +172,16 @@ unsafeJoin (Array lo1 _hi1 arr1) (Array _lo2 hi2 _arr2) =
 
 --------------------------------------------------------------------------------
 
-{-# INLINE swap #-}
-swap :: P.Prim a => Array a %1-> Int -> Int -> Array a
-swap = Unsafe.toLinear go
-  where
-    go xs i j =
-      let (Ur !xi, xs1) = get xs i
-          (Ur xj, xs2) = get xs1 j
-          xs3 = set xs2 i xj
-          xs4 = set xs3 j xi
-      in xs4
-
 {-# INLINE fromList #-}
-fromList :: P.Prim a => [a] -> (Array a %1-> Ur b) %1-> Ur b
+fromList :: Elt a => [a] -> (Array a %1-> Ur b) %1-> Ur b
 fromList ls f =
   let arr = makeNoFill (length ls)
-  in f (GHC.foldl (\acc (i,x) -> set acc i x) arr (zip [0..] ls))
+  in f (foldl (\acc (i,x) -> set acc i x) arr (zip [0..] ls))
 
 {-# INLINE toList #-}
-toList :: P.Prim a => Array a %1-> Ur [a]
+toList :: Elt a => Array a %1-> Ur [a]
 toList = Unsafe.toLinear go
   where
     go (Array lo hi arr) =
       let ixs = [lo..(hi-1)]
       in Ur [ get# arr i# | (GHC.I# i#) <- ixs ]
-
---------------------------------------------------------------------------------
-
-{-# INLINE sum #-}
-sum :: (Num a, P.Prim a) => Array a %1-> Ur a
-sum a0 = size a0 Linear.& \(Ur !n, a1) -> (go a1 0 n 0)
-  where
-    go :: (Num a, P.Prim a) => Array a %1 -> Int -> Int -> a -> Ur a
-    go xs0 !i n !acc
-      | i == n    = xs0 `lseq` Ur acc
-      | otherwise = unsafeGet xs0 i Linear.&
-                    \(Ur !xi, xs1) -> go xs1 (i+1) n (acc+xi)
-
-{-# INLINE generate #-}
-generate :: (Num a, P.Prim a) => Int -> (Int -> a) -> (Array a %1-> Ur b) %1-> Ur b
-generate n g f = f (generate' m 0 g (makeNoFill m))
-  where
-    m = n `max` 0
-
-{-# INLINE generate' #-}
-generate' :: (Num a, P.Prim a) => Int -> Int -> (Int -> a) -> Array a -> Array a
-generate' !m !off g = go 0
-  where
-    go !i arr
-      | i == m    = arr
-      | otherwise = go (i+1) (unsafeSet arr i (g (i+off)))
-
-{-# INLINE foldl #-}
-foldl :: forall a b. P.Prim a => (b -> a %1-> b) -> b %1-> Array a %1-> Ur b
-foldl f = Unsafe.toLinear2 go2
-  where
-    go2 acc arr0 =
-      let (Ur n, arr1) = size arr0
-      in Ur (go arr1 acc 0 n)
-    go arr0 acc0 !i !n
-      | i == n    = acc0
-      | otherwise = let (Ur xi, arr1) = unsafeGet arr0 i
-                        acc1 = f acc0 xi
-                    in go arr1 acc1 (i+1) n
-
-{-# INLINE copyAndGetDst #-}
-copyAndGetDst :: P.Prim a => (Array a, Array a) %1-> Int -> Int -> Int -> Array a
-copyAndGetDst (src,dst) i j n =
-  copy (src,dst) i j n Linear.&
-  \(src1,dst1) -> src1 `lseq` dst1
-
-{-# INLINE copyOneAndGetDst #-}
--- This might be more efficient that calling copy, not verified by a benchmark.
-copyOneAndGetDst :: P.Prim a => (Array a, Array a) %1-> Int -> Int -> Array a
-copyOneAndGetDst (src,dst) i j =
-  unsafeGet src i Linear.&
-  \(Ur x, src1) -> src1 `lseq` unsafeSet dst j x
