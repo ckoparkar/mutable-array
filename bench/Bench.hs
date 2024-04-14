@@ -15,7 +15,7 @@ import           System.Environment ( getArgs, withArgs )
 import           Data.Unrestricted.Linear ( Ur(..), unur )
 import qualified Unsafe.Linear as Unsafe
 import qualified Prelude.Linear as Linear
-import            Control.Monad ( forM_ )
+import           Control.Monad ( forM_ )
 import qualified Control.Monad.Par as Par ( runPar )
 
 import qualified Measure as M
@@ -24,43 +24,6 @@ import qualified Data.Array.Mutable.Primitive as A
 import qualified Data.Array.Mutable.Prelude as A
 
 --------------------------------------------------------------------------------
-
-iters :: Int
-iters = 5
-
-bSumArray :: forall a. (Show a, Random a, NFData a, Num a, A.Elt a) =>
-             Proxy a -> Int -> IO Benchmark
-bSumArray _ty size = do
-  rng <- newStdGen
-  let ls = take size (randoms rng :: [a])
-      !input = force (unur (A.fromList ls (Unsafe.toLinear Ur)))
-  forM_ [ ("Sum array/Seq", (unur Linear.. A.sum))
-        , ("Sum array/Par", (unur Linear.. P.sumPar))
-        , ("Sum array/ParM", (unur Linear.. (Unsafe.toLinear Par.runPar) Linear.. P.sumParM))
-        ] $
-    \(msg,f) -> M.run M.bench msg f input size iters
-  let critbench = bgroup "Sum array"
-        [ bench "Seq" (nf (\a -> unur (A.sum a)) input)
-        , bench "Par" (nf (\a -> unur (P.sumPar a)) input)
-        , bench "ParM" (nf (\a -> unur ((Unsafe.toLinear Par.runPar) (P.sumParM a))) input)
-        ]
-  pure critbench
-
-bGenArray :: forall a. (Show a, Random a, NFData a, Num a, A.Elt a) =>
-             Proxy a -> Int -> IO Benchmark
-bGenArray _ty size = do
-  let !input = force size
-  forM_ [ ("Gen array/Seq", (\n -> unur (A.generate n (*2) (Unsafe.toLinear Ur))))
-        , ("Gen array/Par", (\n -> unur (P.generatePar n (*2) (Unsafe.toLinear Ur))))
-        , ("Gen array/ParM", (\n -> unur ((Unsafe.toLinear Par.runPar) (P.generateParM n (*2) (Unsafe.toLinear (pure . Ur))))))
-        ] $
-    \(msg,f) -> M.run M.bench msg f input size iters
-  let critbench = bgroup "Gen array"
-        [ bench "Seq" (nf (\n -> unur (A.generate n (*2) (Unsafe.toLinear Ur))) input)
-        , bench "Par" (nf (\n -> unur (P.generatePar n (*2) (Unsafe.toLinear Ur))) input)
-        , bench "ParM" (nf (\n -> unur ((Unsafe.toLinear Par.runPar) (P.generateParM n (*2) (Unsafe.toLinear (pure . Ur))))) input)
-        ]
-  pure critbench
 
 data Benchmarks = SumArray | GenArray
   deriving (Eq, Show, Read)
@@ -82,3 +45,47 @@ main = do
       SumArray -> bSumArray (Proxy :: Proxy Int64) size
       GenArray -> bGenArray (Proxy :: Proxy Int64) size
   withArgs rst $ defaultMain [ runbench ]
+
+--------------------------------------------------------------------------------
+
+iters :: Int
+iters = 5
+
+bSumArray :: forall a. (Show a, Random a, NFData a, Num a, A.Elt a) =>
+             Proxy a -> Int -> IO Benchmark
+bSumArray _ty size = do
+  rng <- newStdGen
+  let ls = take size (randoms rng :: [a])
+      !input = force (unur (A.fromList ls (Unsafe.toLinear Ur)))
+  b "SumArray" size input fseq fpar fparm
+  where
+    fseq = (unur Linear.. A.sum)
+    fpar = (unur Linear.. P.sumPar)
+    fparm = (unur Linear.. (Unsafe.toLinear Par.runPar) Linear.. P.sumParM)
+
+bGenArray :: forall a. (Show a, Random a, NFData a, Num a, A.Elt a) =>
+             Proxy a -> Int -> IO Benchmark
+bGenArray _ty size = do
+  let !input = force size
+  b "GenArray" size input fseq fpar fparm
+  where
+    fseq = (\n -> unur (A.generate n (*2) (Unsafe.toLinear Ur)))
+    fpar = (\n -> unur (P.generatePar n (*2) (Unsafe.toLinear Ur)))
+    fparm = (\n -> unur (Par.runPar (P.generateParM n (*2) (Unsafe.toLinear (pure . Ur)))))
+
+b :: forall a b. (NFData a, Show b, NFData b)
+  => String -> Int
+  -> a -> (a -> b) -> (a -> b) -> (a -> b)
+  -> IO Benchmark
+b msg size input fseq fpar fparm = do
+  forM_ [ (msg ++ "/Seq", fseq)
+        , (msg ++ "/Par", fpar)
+        , (msg ++ "/ParM", fparm)
+        ] $
+    \(msg1,f) -> M.run M.bench msg1 f input size iters
+  let critbench = bgroup msg
+        [ bench "Seq" (nf fseq input)
+        , bench "Par" (nf fpar input)
+        , bench "ParM" (nf fparm input)
+        ]
+  pure critbench

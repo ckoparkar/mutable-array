@@ -16,15 +16,19 @@ median ls = (sort ls) !! (length ls `div` 2)
 
 --------------------------------------------------------------------------------
 
-run :: ((a %n-> b) -> a -> Int -> IO (a5, Double, Double)) ->
-       String -> (a %n-> b) -> a -> Int -> Int -> IO ()
+run :: (Show b)
+    => ((a %n-> b) -> a -> Int -> IO (b, Double, Double))
+    -> String -> (a %n-> b) -> a -> Int -> Int -> IO ()
 run bnch msg f x size iters = do
   putStrLn $ "BENCHMARK: " ++ msg
-  (_res0, t0, t_all) <- bnch f x iters
+  (res, t_one, t_all) <- bnch f x iters
+  let show' y = let str = show y
+                in take 100 str ++ (if length str > 100 then "..." else "")
   putStrLn $ "SIZE: " ++ show size
   putStrLn $ "ITERS: " ++ show iters
   putStrLn $ "BATCHTIME: " ++ show t_all
-  putStrLn $ "SELFTIMED: " ++ show t0
+  putStrLn $ "SELFTIMED: " ++ show t_one
+  putStrLn $ "VAL: " ++ show' res
   putStrLn ""
 
 bench :: (NFData a, Show b, NFData b) => (a %n-> b) -> a -> Int -> IO (b, Double, Double)

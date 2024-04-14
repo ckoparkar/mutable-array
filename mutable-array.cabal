@@ -38,8 +38,8 @@ test-suite test-mutable-array
     main-is:          Test.hs
     build-depends:    mutable-array
                     , linear-base
+                    , monad-par
                     , tasty
-                    , tasty-hunit
                     , tasty-quickcheck
 
 benchmark bench-mutable-array

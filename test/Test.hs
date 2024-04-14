@@ -4,12 +4,12 @@
 module Main (main) where
 
 import           Test.Tasty ( TestTree, testGroup, defaultMain )
-import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck
 import qualified Prelude.Linear as Linear hiding ((>))
 import qualified Unsafe.Linear as Unsafe
 import           Data.Unrestricted.Linear
 import qualified Data.List as L
+import qualified Control.Monad.Par as Par
 
 import qualified Data.Array.Mutable.Prelude as A
 import qualified Data.Array.Mutable.Primitive as A
@@ -23,120 +23,8 @@ import qualified Data.Array.Mutable.Parallel as P
 main :: IO ()
 main = defaultMain tests
 
-tests, unitTests, propTests :: TestTree
-tests = testGroup "Tests" [ unitTests, propTests ]
-
-unitTests =
-  testGroup "Unit tests"
-    [ allocAndGet
-    , makeSetAndGet
-    , size
-    , copy
-    , splitAndCopy
-    , swap
-    , listRoundtrip
-    , split
-    , join
-    , tsum
-    , parsum
-    , gen
-    , pargen
-    , fold
-    , insertionsort
-    , mergesort
-    , cilksort
-    ]
-  where
-    ls = [1,2,3,4] :: [Int]
-
-    allocAndGet = testCase "Alloc, get"  $
-      unur (A.alloc 4 (5 :: Int) A.toList)
-        @?= [5,5,5,5]
-
-    makeSetAndGet = testCase "Make, set, get" $
-      unur (A.allocNoFill 4 (\a0 -> setN a0 0 10 4 Linear.& A.toList))
-        @?= [10,11,12,13]
-
-    size = testCase "Size" $
-      unur (A.fromList ls (\a0 -> A.size a0 Linear.&
-                           \(n,a1) -> a1 `lseq` n))
-      @?= 4
-
-    copy = testCase "Copy" $
-      unur (A.fromList ls
-             (\src -> A.allocNoFill (length ls)
-               (\dst -> A.copy (src,dst) 0 0 (length ls)       Linear.&
-                \(src1,dst1) -> (A.toList src1, A.toList dst1) Linear.&
-                \(Ur src2, Ur dst2) -> Ur (src2, dst2))))
-      @?= (ls, ls)
-
-    splitAndCopy = testCase "Split and copy" $
-      let n = length ls
-          m = n `div` 2 in
-        unur (A.fromList ls
-               (\src -> A.allocNoFill (length ls)
-                 (\dst -> A.splitAt src m Linear.&
-                  \(sl,sr)    -> A.copy (sl,dst) 0 0 m     Linear.&
-                  \(sl1,dst1) -> sl1 `lseq` A.copy (sr,dst1) 0 m (n-m) Linear.&
-                  \(sr1,dst2) -> sr1 `lseq` A.toList dst2)))
-        @?= ls
-
-    swap = testCase "Swap" $
-      unur (A.allocNoFill 4 (\a0 -> setN a0 0 10 4 Linear.&
-                             \a1 -> A.swap a1 0 3  Linear.&
-                             A.toList))
-        @?= [13,11,12,10]
-
-    listRoundtrip = testCase "List roundtrip" $
-      unur (A.fromList ls A.toList)
-      @?= ls
-
-    split = testCase "Split" $
-      unur (A.fromList ls (\a0 -> A.splitMid a0                                Linear.&
-                           \(sl,sr) -> (A.toList sl, A.toList sr) Linear.&
-                           \(Ur a, Ur b) -> Ur (a,b)))
-      @?= ([1,2], [3,4])
-
-    join = testCase "Join" $
-      unur (A.fromList ls (\a0 -> A.splitMid a0                  Linear.&
-                           \(sl,sr) -> A.join sl sr Linear.&
-                           A.toList))
-      @?= ls
-
-    tsum = testCase "Sum" $
-      unur (A.fromList ls A.sum)
-      @?= sum ls
-
-    parsum = testCase "Parallel sum" $
-      unur (A.fromList (take 3000 ([1..] :: [Int])) A.sum)
-      @?= unur (A.fromList (take 3000 ([1..] :: [Int])) P.sumPar)
-
-    gen = testCase "Generate" $
-      unur (A.generate 4 (*2) A.toList)
-      @?= [0,2,4,6]
-
-    pargen = testCase "Parallel generate" $
-      let m = 3000
-      in unur (P.generatePar m (*2) A.toList)
-         @?= unur (A.generate m (*2) A.toList)
-
-    fold = testCase "Fold" $
-      unur (A.fromList ls (A.foldl (Unsafe.toLinear2 (+)) 0))
-      @?= sum ls
-
-    insertionsort = testCase "Insertion sort" $
-      unur (A.fromList (reverse ls) (A.toList Linear.. Insertion.sortInplace))
-      @?= ls
-
-    mergesort = testCase "Merge sort" $
-      unur (A.fromList (reverse ls) (A.toList Linear.. Merge.sortInplace))
-      @?= ls
-
-    cilksort = testCase "Cilk sort" $
-      let m = 3000
-          ls1 = take m ([1..] :: [Int])
-      in unur (A.fromList (reverse ls1) (A.toList Linear.. Cilk.sortInplacePar))
-         @?= L.sort ls1
+tests, propTests :: TestTree
+tests = testGroup "Tests" [ propTests ]
 
 propTests =
   testGroup "Property tests"
@@ -150,9 +38,11 @@ propTests =
     , split
     , join
     , tsum
-    , parsum
+    , sumpar
+    , sumparm
     , gen
-    , pargen
+    , genpar
+    , genparm
     , fold
     , insertionsort
     , mergesort
@@ -193,7 +83,7 @@ propTests =
           unur (A.fromList ls
                 (\src -> A.allocNoFill (length ls)
                   (\dst -> A.splitAt src m Linear.&
-                   \(sl,sr)    ->  A.copy (sl,dst) 0 0 m     Linear.&
+                   \(sl,sr)    ->  A.copy (sl,dst) 0 0 m                Linear.&
                    \(sl1,dst1) -> sl1 `lseq` A.copy (sr,dst1) 0 m (n-m) Linear.&
                    \(sr1,dst2) -> sr1 `lseq` A.toList dst2)))
           === ls
@@ -213,7 +103,7 @@ propTests =
     split = testProperty "Split" $
       \((NonNegative n) :: NonNegative Int) ->
         let ls = [0..n] :: [Int] in
-          unur (A.fromList ls (\a0 -> A.splitMid a0                                Linear.&
+          unur (A.fromList ls (\a0 -> A.splitMid a0                   Linear.&
                                \(sl,sr) -> (A.toList sl, A.toList sr) Linear.&
                                \(Ur a, Ur b) -> Ur (a,b)))
           === splitAt ((n+1) `div` 2) ls
@@ -221,7 +111,7 @@ propTests =
     join = testProperty "Join" $
       \((NonNegative n) :: NonNegative Int) ->
         let ls = [0..n] :: [Int] in
-          unur (A.fromList ls (\a0 -> A.splitMid a0                  Linear.&
+          unur (A.fromList ls (\a0 -> A.splitMid a0     Linear.&
                                \(sl,sr) -> A.join sl sr Linear.&
                                A.toList ))
           === ls
@@ -231,21 +121,33 @@ propTests =
         unur (A.fromList ls A.sum)
         === sum ls
 
-    parsum = testProperty "Parallel sum" $
+    sumpar = testProperty "Parallel sum" $
       \((NonEmpty ls) :: NonEmptyList Int) ->
         let ls1 = take 3000 (cycle ls) in
-          unur (A.fromList ls1 A.sum)
-          === unur (A.fromList ls1 P.sumPar)
+          unur (A.fromList ls1 P.sumPar)
+          === unur (A.fromList ls1 A.sum)
+
+    sumparm = testProperty "Parallel sum (ParM)" $
+      \((NonEmpty ls) :: NonEmptyList Int) ->
+        let ls1 = take 3000 (cycle ls) in
+          unur (A.fromList ls1 ((Unsafe.toLinear Par.runPar) Linear.. P.sumParM))
+          === unur (A.fromList ls1 A.sum)
 
     gen = testProperty "Generate" $
       \((NonNegative n) :: NonNegative Int) ->
         unur (A.generate n (*2) A.toList)
         === map (*2) [0..n-1]
 
-    pargen = testProperty "Parallel generate" $
+    genpar = testProperty "Parallel generate" $
       \((NonNegative n) :: NonNegative Int) ->
         let m = 3000+n in
           unur (P.generatePar m (*2) A.toList)
+          === unur (A.generate m (*2) A.toList)
+
+    genparm = testProperty "Parallel generate (ParM)" $
+      \((NonNegative n) :: NonNegative Int) ->
+        let m = 3000+n in
+          unur (Par.runPar (P.generateParM m (*2) ((Unsafe.toLinear pure) Linear.. A.toList)))
           === unur (A.generate m (*2) A.toList)
 
     fold = testProperty "Fold" $
