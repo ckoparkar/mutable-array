@@ -67,3 +67,44 @@ generateParM n g = Unsafe.toLinear go2
                genr <- go (off+h) sr
                genl <- Par.get genl_f
                pure $ A.join genl genr
+
+copyPar :: A.Elt a => (A.Array a, A.Array a) %1-> Int -> Int -> Int -> (A.Array a, A.Array a)
+copyPar = Unsafe.toLinear go2
+  where
+    go2 (src,dst) soff doff n =
+      let (cpysrc, src1) = A.slice src soff n
+          (cpydst, dst1) = A.slice dst doff n
+          (cpysrc2, cpydst2) = go cpysrc cpydst n
+      in cpysrc2 `seq` cpydst2 `seq` (src1, dst1)
+
+    go src dst !n
+      | n <= 2048 =
+        A.copy (src,dst) 0 0 n
+      | otherwise =
+        let h = n `div` 2
+            (sl,sr) = A.splitAt src h
+            (dl,dr) = A.splitAt dst h
+            cl = go sl dl h
+            cr = go sr dr (n-h)
+        in cl `par` cr `pseq` (A.join (fst cl) (fst cr), A.join (snd cl) (snd cr))
+
+copyParM :: A.Elt a => (A.Array a, A.Array a) %1-> Int -> Int -> Int -> Par.Par (A.Array a, A.Array a)
+copyParM = Unsafe.toLinear go2
+  where
+    go2 (src,dst) soff doff n = do
+      let (cpysrc, src1) = A.slice src soff n
+          (cpydst, dst1) = A.slice dst doff n
+      (cpysrc2, cpydst2) <- go cpysrc cpydst n
+      pure $ cpysrc2 `lseq` cpydst2 `lseq` (src1, dst1)
+
+    go src dst !n
+      | n <= 2048 =
+        pure $ A.copy (src,dst) 0 0 n
+      | otherwise =
+        do let h = n `div` 2
+               (sl,sr) = A.splitAt src h
+               (dl,dr) = A.splitAt dst h
+           cl_f <- Par.spawn_ $ go sl dl h
+           cr <- go sr dr (n-h)
+           cl <- Par.get cl_f
+           pure $ (A.join (fst cl) (fst cr), A.join (snd cl) (snd cr))

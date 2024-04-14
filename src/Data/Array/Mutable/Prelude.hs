@@ -4,13 +4,21 @@
 
 module Data.Array.Mutable.Prelude where
 
-import           Prelude hiding ( splitAt, sum, foldl )
+import           Prelude hiding ( last, splitAt, sum, foldl )
 import           Data.Unrestricted.Linear ( Ur(..), lseq)
 import qualified Unsafe.Linear as Unsafe
 import qualified Prelude.Linear as Linear
 import           Data.Array.Mutable.Primitive
 
 --------------------------------------------------------------------------------
+
+last :: Elt a => Array a %1-> Ur a
+last = Unsafe.toLinear go
+  where
+    go arr0 =
+      let (Ur n, arr1) = size arr0
+          (x, arr2) = unsafeGet arr1 (n-1)
+      in arr2 `lseq` x
 
 {-# INLINE swap #-}
 swap :: Elt a => Array a %1-> Int -> Int -> Array a

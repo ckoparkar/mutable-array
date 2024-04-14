@@ -32,6 +32,8 @@ propTests =
     , makeSetAndGet
     , size
     , copy
+    , copypar
+    , copyparm
     , splitAndCopy
     , swap
     , listRoundtrip
@@ -71,6 +73,26 @@ propTests =
           unur (A.fromList ls
                 (\src -> A.allocNoFill (length ls)
                   (\dst -> A.copy (src,dst) 0 0 (length ls)       Linear.&
+                   \(src1,dst1) -> (A.toList src1, A.toList dst1) Linear.&
+                   \(Ur src2, Ur dst2) -> Ur (src2, dst2))))
+          === (ls, ls)
+
+    copypar = testProperty "Parallel copy" $
+      \((NonNegative n) :: NonNegative Int) ->
+        let ls = take 3000 (cycle [0..n]) :: [Int] in
+          unur (A.fromList ls
+                (\src -> A.allocNoFill (length ls)
+                  (\dst -> P.copyPar (src,dst) 0 0 (length ls)    Linear.&
+                   \(src1,dst1) -> (A.toList src1, A.toList dst1) Linear.&
+                   \(Ur src2, Ur dst2) -> Ur (src2, dst2))))
+          === (ls, ls)
+
+    copyparm = testProperty "Parallel copy (ParM)" $
+      \((NonNegative n) :: NonNegative Int) ->
+        let ls = take 3000 (cycle [0..n]) :: [Int] in
+          unur (A.fromList ls
+                (\src -> A.allocNoFill (length ls)
+                  (\dst -> (Unsafe.toLinear Par.runPar) (P.copyParM (src,dst) 0 0 (length ls)) Linear.&
                    \(src1,dst1) -> (A.toList src1, A.toList dst1) Linear.&
                    \(Ur src2, Ur dst2) -> Ur (src2, dst2))))
           === (ls, ls)

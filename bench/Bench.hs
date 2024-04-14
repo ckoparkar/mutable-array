@@ -25,7 +25,7 @@ import qualified Data.Array.Mutable.Prelude as A
 
 --------------------------------------------------------------------------------
 
-data Benchmarks = SumArray | GenArray
+data Benchmarks = SumArray | GenArray | CopyArray
   deriving (Eq, Show, Read)
 
 main :: IO ()
@@ -44,6 +44,7 @@ main = do
     case benchmark of
       SumArray -> bSumArray (Proxy :: Proxy Int64) size
       GenArray -> bGenArray (Proxy :: Proxy Int64) size
+      CopyArray -> bCopyArray (Proxy :: Proxy Int64) size
   withArgs rst $ defaultMain [ runbench ]
 
 --------------------------------------------------------------------------------
@@ -72,6 +73,25 @@ bGenArray _ty size = do
     fseq = (\n -> unur (A.generate n (*2) (Unsafe.toLinear Ur)))
     fpar = (\n -> unur (P.generatePar n (*2) (Unsafe.toLinear Ur)))
     fparm = (\n -> unur (Par.runPar (P.generateParM n (*2) (Unsafe.toLinear (pure . Ur)))))
+
+bCopyArray :: forall a. (Eq a, Show a, Random a, NFData a, Num a, A.Elt a) =>
+             Proxy a -> Int -> IO Benchmark
+bCopyArray _ty size = do
+  rng <- newStdGen
+  let ls = take size (randoms rng :: [a])
+      !chk = force (sum ls)
+      !input = force (unur (A.fromList ls (Unsafe.toLinear Ur)))
+  b "CopyArray" size (input, chk) fseq fpar fparm
+  where
+    fseq (arr, chk) =
+      chk == unur (A.sum (snd (A.copy (arr, (A.makeNoFill size)) 0 0 size)))
+
+    fpar (arr, chk) =
+      chk == unur (P.sumPar (snd (P.copyPar (arr, (A.makeNoFill size)) 0 0 size)))
+
+    fparm (arr, chk) =
+      chk == unur (Par.runPar ((\(_s,d) -> P.sumParM d) =<<
+                               (P.copyParM (arr, (A.makeNoFill size)) 0 0 size)))
 
 b :: forall a b. (NFData a, Show b, NFData b)
   => String -> Int
