@@ -1,15 +1,23 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LinearTypes  #-}
 
-module Data.Array.Mutable.Sort.Merge ( sortInplace ) where
+module Data.Array.Mutable.Sort.Merge ( sort, sortInplace ) where
 
-import           Data.Unrestricted.Linear ( Ur(..) )
+import           Data.Unrestricted.Linear ( Ur(..), lseq )
 import qualified Unsafe.Linear as Unsafe
 
 import qualified Data.Array.Mutable.Primitive as A
 import qualified Data.Array.Mutable.Prelude as A
 
 --------------------------------------------------------------------------------
+
+sort :: (Ord a, A.Elt a) => A.Array a %1-> A.Array a
+sort = Unsafe.toLinear go
+  where
+    go src =
+      let (Ur n, src1) = A.size src
+          (src2, dst)  = A.copy (src1, A.makeNoFill n) 0 0 n
+      in src2 `lseq` sortInplace dst
 
 sortInplace :: (Ord a, A.Elt a) => A.Array a %1-> A.Array a
 sortInplace = Unsafe.toLinear go

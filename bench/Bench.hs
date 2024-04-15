@@ -22,10 +22,11 @@ import qualified Measure as M
 import qualified Data.Array.Mutable.Parallel as P
 import qualified Data.Array.Mutable.Primitive as A
 import qualified Data.Array.Mutable.Prelude as A
+import qualified Data.Array.Mutable.Sort.Cilk as Cilk
 
 --------------------------------------------------------------------------------
 
-data Benchmarks = SumArray | GenArray | CopyArray
+data Benchmarks = SumArray | GenArray | CopyArray | CilkSort
   deriving (Eq, Show, Read)
 
 main :: IO ()
@@ -42,9 +43,10 @@ main = do
           _ -> error usage
   runbench <-
     case benchmark of
-      SumArray -> bSumArray (Proxy :: Proxy Int64) size
-      GenArray -> bGenArray (Proxy :: Proxy Int64) size
+      SumArray  -> bSumArray (Proxy :: Proxy Int64) size
+      GenArray  -> bGenArray (Proxy :: Proxy Int64) size
       CopyArray -> bCopyArray (Proxy :: Proxy Int64) size
+      CilkSort  -> bCilkSort (Proxy :: Proxy Int64) size
   withArgs rst $ defaultMain [ runbench ]
 
 --------------------------------------------------------------------------------
@@ -75,7 +77,7 @@ bGenArray _ty size = do
     fparm = (\n -> unur (Par.runPar (P.generateParM n (*2) (Unsafe.toLinear (pure . Ur)))))
 
 bCopyArray :: forall a. (Eq a, Show a, Random a, NFData a, Num a, A.Elt a) =>
-             Proxy a -> Int -> IO Benchmark
+              Proxy a -> Int -> IO Benchmark
 bCopyArray _ty size = do
   rng <- newStdGen
   let ls = take size (randoms rng :: [a])
@@ -93,9 +95,22 @@ bCopyArray _ty size = do
       chk == unur (Par.runPar ((\(_s,d) -> P.sumParM d) =<<
                                (P.copyParM (arr, (A.makeNoFill size)) 0 0 size)))
 
-b :: forall a b. (NFData a, Show b, NFData b)
+bCilkSort :: forall a. (Ord a, Show a, Random a, NFData a, Num a, A.Elt a) =>
+             Proxy a -> Int -> IO Benchmark
+bCilkSort _ty size = do
+  rng <- newStdGen
+  let ls = take size (randoms rng :: [a])
+      !input = force (unur (A.fromList ls (Unsafe.toLinear Ur)))
+  b "CilkSort" size input fseq fpar fparm
+  where
+    fseq, fpar, fparm :: A.Array a %1-> A.Array a
+    fseq = Cilk.sort
+    fpar = Cilk.sortPar
+    fparm = (Unsafe.toLinear Par.runPar) Linear.. Cilk.sortParM
+
+b :: forall a b n. (NFData a, Show b, NFData b)
   => String -> Int
-  -> a -> (a -> b) -> (a -> b) -> (a -> b)
+  -> a -> (a %n-> b) -> (a %n-> b) -> (a %n-> b)
   -> IO Benchmark
 b msg size input fseq fpar fparm = do
   forM_ [ (msg ++ "/Seq", fseq)
@@ -104,8 +119,8 @@ b msg size input fseq fpar fparm = do
         ] $
     \(msg1,f) -> M.run M.bench msg1 f input size iters
   let critbench = bgroup msg
-        [ bench "Seq" (nf fseq input)
-        , bench "Par" (nf fpar input)
-        , bench "ParM" (nf fparm input)
+        [ bench "Seq" (nf (Unsafe.toLinear fseq) input)
+        , bench "Par" (nf (Unsafe.toLinear fpar) input)
+        , bench "ParM" (nf (Unsafe.toLinear fparm) input)
         ]
   pure critbench

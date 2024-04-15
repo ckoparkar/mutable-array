@@ -25,7 +25,6 @@ main = defaultMain tests
 
 tests, propTests :: TestTree
 tests = testGroup "Tests" [ propTests ]
-
 propTests =
   testGroup "Property tests"
     [ allocAndGet
@@ -49,8 +48,12 @@ propTests =
     , insertionsort
     , mergesort
     , cilksort
+    , cilksortpar
+    , cilksortparm
     ]
   where
+    bigN = 10000
+
     allocAndGet = testProperty "Alloc, get"  $
       \((NonNegative n) :: NonNegative Int) (x :: Int) ->
         unur (A.alloc n x A.toList)
@@ -79,7 +82,7 @@ propTests =
 
     copypar = testProperty "Parallel copy" $
       \((NonNegative n) :: NonNegative Int) ->
-        let ls = take 3000 (cycle [0..n]) :: [Int] in
+        let ls = take bigN (cycle [0..n]) :: [Int] in
           unur (A.fromList ls
                 (\src -> A.allocNoFill (length ls)
                   (\dst -> P.copyPar (src,dst) 0 0 (length ls)    Linear.&
@@ -89,7 +92,7 @@ propTests =
 
     copyparm = testProperty "Parallel copy (ParM)" $
       \((NonNegative n) :: NonNegative Int) ->
-        let ls = take 3000 (cycle [0..n]) :: [Int] in
+        let ls = take bigN (cycle [0..n]) :: [Int] in
           unur (A.fromList ls
                 (\src -> A.allocNoFill (length ls)
                   (\dst -> (Unsafe.toLinear Par.runPar) (P.copyParM (src,dst) 0 0 (length ls)) Linear.&
@@ -145,13 +148,13 @@ propTests =
 
     sumpar = testProperty "Parallel sum" $
       \((NonEmpty ls) :: NonEmptyList Int) ->
-        let ls1 = take 3000 (cycle ls) in
+        let ls1 = take bigN (cycle ls) in
           unur (A.fromList ls1 P.sumPar)
           === unur (A.fromList ls1 A.sum)
 
     sumparm = testProperty "Parallel sum (ParM)" $
       \((NonEmpty ls) :: NonEmptyList Int) ->
-        let ls1 = take 3000 (cycle ls) in
+        let ls1 = take bigN (cycle ls) in
           unur (A.fromList ls1 ((Unsafe.toLinear Par.runPar) Linear.. P.sumParM))
           === unur (A.fromList ls1 A.sum)
 
@@ -162,13 +165,13 @@ propTests =
 
     genpar = testProperty "Parallel generate" $
       \((NonNegative n) :: NonNegative Int) ->
-        let m = 3000+n in
+        let m = bigN+n in
           unur (P.generatePar m (*2) A.toList)
           === unur (A.generate m (*2) A.toList)
 
     genparm = testProperty "Parallel generate (ParM)" $
       \((NonNegative n) :: NonNegative Int) ->
-        let m = 3000+n in
+        let m = bigN+n in
           unur (Par.runPar (P.generateParM m (*2) ((Unsafe.toLinear pure) Linear.. A.toList)))
           === unur (A.generate m (*2) A.toList)
 
@@ -189,8 +192,20 @@ propTests =
 
     cilksort = testProperty "Cilk sort" $
       \((NonEmpty ls) :: NonEmptyList Int) ->
-        let ls1 = take 3000 (cycle ls) in
+        let ls1 = take bigN (cycle ls) in
+          unur (A.fromList ls1 (A.toList Linear.. Cilk.sortInplace))
+          === L.sort ls1
+
+    cilksortpar = testProperty "Parallel cilk sort" $
+      \((NonEmpty ls) :: NonEmptyList Int) ->
+        let ls1 = take bigN (cycle ls) in
           unur (A.fromList ls1 (A.toList Linear.. Cilk.sortInplacePar))
+          === L.sort ls1
+
+    cilksortparm = testProperty "Parallel cilk sort (ParM)" $
+      \((NonEmpty ls) :: NonEmptyList Int) ->
+        let ls1 = take bigN (cycle ls) in
+          unur (A.fromList ls1 (A.toList Linear.. (Unsafe.toLinear Par.runPar) Linear.. Cilk.sortInplaceParM))
           === L.sort ls1
 
 setN :: A.Array Int %1-> Int -> Int -> Int -> A.Array Int
