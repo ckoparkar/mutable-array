@@ -22,6 +22,7 @@ library
                       Data.Array.Mutable.Prelude
                       Data.Array.Mutable.Parallel
                       Data.Array.Mutable.Sort.Insertion
+                      Data.Array.Mutable.Sort.Quick
                       Data.Array.Mutable.Sort.Merge
                       Data.Array.Mutable.Sort.Cilk
     build-depends:    primitive

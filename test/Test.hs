@@ -5,7 +5,7 @@ module Main (main) where
 
 import           Test.Tasty ( TestTree, testGroup, defaultMain )
 import           Test.Tasty.QuickCheck
-import qualified Prelude.Linear as Linear hiding ((>))
+import qualified Prelude.Linear as Linear
 import qualified Unsafe.Linear as Unsafe
 import           Data.Unrestricted.Linear
 import qualified Data.List as L
@@ -14,6 +14,7 @@ import qualified Control.Monad.Par as Par
 import qualified Data.Array.Mutable.Prelude as A
 import qualified Data.Array.Mutable.Primitive as A
 import qualified Data.Array.Mutable.Sort.Insertion as Insertion
+import qualified Data.Array.Mutable.Sort.Quick as Quick
 import qualified Data.Array.Mutable.Sort.Merge as Merge
 import qualified Data.Array.Mutable.Sort.Cilk as Cilk
 import qualified Data.Array.Mutable.Parallel as P
@@ -46,6 +47,7 @@ propTests =
     , genparm
     , fold
     , insertionsort
+    , quicksort
     , mergesort
     , cilksort
     , cilksortpar
@@ -183,6 +185,11 @@ propTests =
     insertionsort = testProperty "Insertion sort" $
       \((NonEmpty ls) :: NonEmptyList Int) ->
         unur (A.fromList ls (A.toList Linear.. Insertion.sortInplace))
+        === L.sort ls
+
+    quicksort = testProperty "Quick sort" $
+      \((NonEmpty ls) :: NonEmptyList Int) ->
+        unur (A.fromList ls (A.toList Linear.. Quick.sortInplace))
         === L.sort ls
 
     mergesort = testProperty "Merge sort" $
