@@ -1,9 +1,9 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LinearTypes  #-}
 
-module Data.Array.Mutable.Sort.Quick ( sortInplace ) where
+module Data.Array.Mutable.Sort.Quick ( sort, sortInplace ) where
 
-import           Data.Unrestricted.Linear ( Ur(..) )
+import           Data.Unrestricted.Linear ( Ur(..), lseq )
 import qualified Unsafe.Linear as Unsafe
 
 import qualified Data.Array.Mutable.Primitive as A
@@ -11,7 +11,15 @@ import qualified Data.Array.Mutable.Prelude as A
 
 --------------------------------------------------------------------------------
 
-sortInplace :: (Show a, Ord a, A.Elt a) => A.Array a %1-> A.Array a
+sort :: (Ord a, A.Elt a) => A.Array a %1-> A.Array a
+sort = Unsafe.toLinear go
+  where
+    go src =
+      let (Ur n, src1) = A.size src
+          (src2, dst)  = A.copy (src1, A.makeNoFill n) 0 0 n
+      in src2 `lseq` sortInplace dst
+
+sortInplace :: (Ord a, A.Elt a) => A.Array a %1-> A.Array a
 sortInplace = Unsafe.toLinear go
   where
     go arr =
@@ -25,17 +33,35 @@ sortInplace = Unsafe.toLinear go
                           qsort lo (pivot-1) $
                           arr1
 
-partition :: (Show a, Ord a, A.Elt a) => Int -> Int -> A.Array a -> (Int, A.Array a)
-partition lo hi arr00 =
-  let (j, arr2) = go lo lo arr0
-      arr3 = A.swap arr2 j hi
-  in (j, arr3)
+partition :: (Ord a, A.Elt a) => Int -> Int -> A.Array a -> (Int, A.Array a)
+partition lo hi = go
   where
-    (Ur !xpivot, arr0) = A.unsafeGet arr00 hi
+    go arr = let (Ur !xp, arr1) = A.unsafeGet (setupPivot arr) hi
+                 (!pivot, arr2) = loop xp lo lo arr1
+             in (pivot, A.swap arr2 pivot hi)
 
-    go !i !j arr
+    loop !xp !i !j arr
       | i >= hi   = (j, arr)
       | otherwise = let (Ur xi, arr1) = A.unsafeGet arr i
-                    in if xi < xpivot
-                       then go (i+1) (j+1) (A.swap arr1 i j)
-                       else go (i+1) j arr1
+                    in if xi < xp
+                       then loop xp (i+1) (j+1) (A.swap arr1 i j)
+                       else loop xp (i+1) j arr1
+
+    setupPivot arr
+      -- | hi-lo > 3 = middleElt arr
+      | hi-lo > 3 = medianOf3 arr
+      | otherwise = arr
+
+    middleElt arr =
+      A.swap arr ((lo+hi) `div` 2) hi
+
+    medianOf3 arr =
+      let mid = (lo+hi) `div` 2
+          (Ur xlo, arr1)  = A.unsafeGet arr lo
+          (Ur xmid, arr2) = A.unsafeGet arr1 mid
+          (Ur xhi, arr3)  = A.unsafeGet arr2 hi
+      in if (xmid > xlo) && (xmid < xhi)
+         then A.swap arr3 mid hi
+         else if (xlo > xmid) && (xmid < xhi)
+              then A.swap arr3 lo hi
+              else arr3
