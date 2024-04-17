@@ -7,6 +7,7 @@ module Data.Array.Mutable.Parallel where
 import           GHC.Conc ( par, pseq )
 import           Data.Unrestricted.Linear
 import qualified Unsafe.Linear as Unsafe
+import qualified Prelude.Linear as Linear
 import qualified Control.Monad.Par as Par (Par, spawn_, get)
 
 import qualified Data.Array.Mutable.Primitive as A
@@ -108,3 +109,17 @@ copyParM = Unsafe.toLinear go2
            cr <- go sr dr (n-h)
            cl <- Par.get cl_f
            pure $ (A.join (fst cl) (fst cr), A.join (snd cl) (snd cr))
+
+{-# INLINE copyParAndGetDst #-}
+copyParAndGetDst :: A.Elt a => (A.Array a, A.Array a) %1-> Int -> Int -> Int -> A.Array a
+copyParAndGetDst (src,dst) i j n =
+  copyPar (src,dst) i j n Linear.&
+  \(src1,dst1) -> src1 `lseq` dst1
+
+{-# INLINE copyParMAndGetDst #-}
+copyParMAndGetDst :: A.Elt a => (A.Array a, A.Array a) %1-> Int -> Int -> Int -> Par.Par (A.Array a)
+copyParMAndGetDst = Unsafe.toLinear go
+  where
+    go (src,dst) i j n =
+      copyParM (src,dst) i j n >>=
+      \(src1,dst1) -> pure (src1 `lseq` dst1)

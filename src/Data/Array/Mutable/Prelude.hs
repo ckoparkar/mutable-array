@@ -12,6 +12,7 @@ import           Data.Array.Mutable.Primitive
 
 --------------------------------------------------------------------------------
 
+{-# INLINE last #-}
 last :: Elt a => Array a %1-> Ur a
 last = Unsafe.toLinear go
   where
@@ -20,7 +21,7 @@ last = Unsafe.toLinear go
           (x, arr2) = unsafeGet arr1 (n-1)
       in arr2 `lseq` x
 
-{-# INLINE swap #-}
+{-# INLINE unsafeSwap #-}
 swap :: Elt a => Array a %1-> Int -> Int -> Array a
 swap = Unsafe.toLinear go
   where
@@ -29,6 +30,17 @@ swap = Unsafe.toLinear go
           (Ur xj, xs2) = get xs1 j
           xs3 = set xs2 i xj
           xs4 = set xs3 j xi
+      in xs4
+
+{-# INLINE swap #-}
+unsafeSwap :: Elt a => Array a %1-> Int -> Int -> Array a
+unsafeSwap = Unsafe.toLinear go
+  where
+    go xs i j =
+      let (Ur !xi, xs1) = unsafeGet xs i
+          (Ur xj, xs2) = unsafeGet xs1 j
+          xs3 = unsafeSet xs2 i xj
+          xs4 = unsafeSet xs3 j xi
       in xs4
 
 {-# INLINE splitAt #-}

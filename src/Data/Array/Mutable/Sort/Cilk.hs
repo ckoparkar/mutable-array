@@ -13,6 +13,7 @@ import qualified Control.Monad.Par as Par (Par, spawn_, get)
 import qualified Data.Array.Mutable.Primitive as A
 import qualified Data.Array.Mutable.Parallel as P
 import qualified Data.Array.Mutable.Sort.Insertion as Insertion
+import qualified Data.Array.Mutable.Sort.Quick as Quick
 import qualified Data.Array.Mutable.Prelude as A
 
 --------------------------------------------------------------------------------
@@ -67,6 +68,7 @@ sortInplaceParM = Unsafe.toLinear go
 writeSort1Par, writeSort2Par :: (Ord a, A.Elt a) => A.Array a -> A.Array a -> A.Array a
 writeSort1Par src tmp =
   let (Ur n, src1) = A.size src in
+    -- if n < 2048 then (tmp `lseq` Quick.sortInplace' src1) else
     if n < 2048 then writeSort1 src1 tmp else
       let (src_l, src_r) = A.splitMid src
           (tmp_l, tmp_r) = A.splitMid tmp
@@ -77,6 +79,7 @@ writeSort1Par src tmp =
 
 writeSort2Par src tmp =
   let (Ur n, src1) = A.size src in
+    -- if n < 2048 then Quick.sortInplace' (P.copyParAndGetDst (src1, tmp) 0 0 n) else
     if n < 2048 then writeSort2 src1 tmp else
       let (src_l, src_r) = A.splitMid src
           (tmp_l, tmp_r) = A.splitMid tmp
@@ -114,6 +117,7 @@ writeMergePar left0 right0 dst0 =
 writeSort1ParM, writeSort2ParM :: (Ord a, A.Elt a) => A.Array a -> A.Array a -> Par.Par (A.Array a)
 writeSort1ParM src tmp =
   let (Ur n, src1) = A.size src in
+    -- if n < 2048 then pure $ (tmp `lseq` Quick.sortInplace' src1) else
     if n < 2048 then pure $ writeSort1 src1 tmp else
       let (src_l, src_r) = A.splitMid src
           (tmp_l, tmp_r) = A.splitMid tmp
@@ -124,6 +128,7 @@ writeSort1ParM src tmp =
 
 writeSort2ParM src tmp =
   let (Ur n, src1) = A.size src in
+    -- if n < 2048 then (P.copyParMAndGetDst (src1, tmp) 0 0 n) >>= \a -> pure (Quick.sortInplace' a) else
     if n < 2048 then pure $ writeSort2 src1 tmp else
       let (src_l, src_r) = A.splitMid src
           (tmp_l, tmp_r) = A.splitMid tmp
@@ -179,7 +184,7 @@ binarySearch query = go 0
 writeSort1, writeSort2 :: (Ord a, A.Elt a) => A.Array a -> A.Array a -> A.Array a
 writeSort1 src tmp =
   let (Ur n, src1) = A.size src in
-    if n < 20 then Insertion.sortInplace src1 else
+    if n < 20 then tmp `lseq` Insertion.sortInplace src1 else
       let (src_l, src_r) = A.splitMid src
           (tmp_l, tmp_r) = A.splitMid tmp
           tmp_l1 = writeSort2 src_l tmp_l

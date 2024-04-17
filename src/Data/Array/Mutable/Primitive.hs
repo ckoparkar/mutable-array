@@ -23,6 +23,7 @@ module Data.Array.Mutable.Primitive
 
   ) where
 
+import           GHC.Stack ( HasCallStack )
 import qualified GHC.Exts as GHC
 import           Control.DeepSeq ( NFData(..) )
 import           Data.Unrestricted.Linear ( Ur(..), unur, Consumable(..), lseq
@@ -130,7 +131,7 @@ copy = Unsafe.toLinear go
         dst_arr' -> (s, d { _arr = dst_arr' })
 
 {-# INLINE checkBounds #-}
-checkBounds :: String -> Int -> (Int, Int) -> ()
+checkBounds :: HasCallStack => String -> Int -> (Int, Int) -> ()
 checkBounds msg i (lo,hi) =
   if i < lo || i > hi
   then (error $ msg ++ ": index out of bounds: " ++ show i ++ "," ++ show lo ++ "," ++ show hi)

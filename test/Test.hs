@@ -48,6 +48,7 @@ propTests =
     , fold
     , insertionsort
     , quicksort
+    , quicksortToInsertion
     , mergesort
     , cilksort
     , cilksortpar
@@ -190,6 +191,11 @@ propTests =
     quicksort = testProperty "Quick sort" $
       \((NonEmpty ls) :: NonEmptyList Int) ->
         unur (A.fromList ls (A.toList Linear.. Quick.sortInplace))
+        === L.sort ls
+
+    quicksortToInsertion = testProperty "Quick sort bottom out to insertion" $
+      \((NonEmpty ls) :: NonEmptyList Int) ->
+        unur (A.fromList ls (A.toList Linear.. Quick.sortInplace'))
         === L.sort ls
 
     mergesort = testProperty "Merge sort" $

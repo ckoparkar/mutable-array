@@ -114,13 +114,24 @@ bCilkSort _ty size = do
 bQuickSort :: forall a. (Ord a, Show a, Random a, NFData a, Num a, A.Elt a) =>
              Proxy a -> Int -> IO Benchmark
 bQuickSort _ty size = do
-  rng <- newStdGen
-  let ls = take size (randoms rng :: [a])
-      -- ls = take size ([0..size])
-      !input = force (unur (A.fromList ls (Unsafe.toLinear Ur)))
+  -- rng <- newStdGen
+  -- let ls = take size (randoms rng :: [a])
+  let ls = [0..size-1]
+      !input = force (unur (A.fromList ls ((Unsafe.toLinear Ur) Linear.. (scramble size))))
   b True "QuickSort" size input fseq fseq fseq
   where
     fseq = Quick.sort
+
+scramble :: A.Elt a => Int -> A.Array a %1-> A.Array a
+scramble n = Unsafe.toLinear (go 0 0)
+  where
+    myrand curr = curr * 1103515245 + 12345
+    go rng i arr
+      | i == n    = arr
+      | otherwise = let rng1 = myrand rng
+                        j = rng1 `mod` n
+                        arr1 = A.swap arr i j
+                    in go rng1 (i+1) arr1
 
 b :: forall a b n. (NFData a, Show b, NFData b)
   => Bool -> String -> Int
