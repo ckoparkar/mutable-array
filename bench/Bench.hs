@@ -98,12 +98,14 @@ bCopyArray _ty size = do
       chk == unur (Par.runPar ((\(_s,d) -> P.sumParM d) =<<
                                (P.copyParM (arr, (A.makeNoFill size)) 0 0 size)))
 
-bCilkSort :: forall a. (Ord a, Show a, Random a, NFData a, A.Elt a) =>
+bCilkSort :: forall a. (Ord a, Show a, Random a, NFData a, Num a, A.Elt a, Enum a) =>
              Proxy a -> Int -> IO Benchmark
 bCilkSort _ty size = do
-  rng <- newStdGen
-  let ls = take size (randoms rng :: [a])
-      !input = force (unur (A.fromList ls (Unsafe.toLinear Ur)))
+  -- rng <- newStdGen
+  -- let ls = take size (randoms rng :: [a])
+  --     !input = force (unur (A.fromList ls (Unsafe.toLinear Ur)))
+  let ls = [0..(fromIntegral size - 1)] :: [a]
+      !input = force (unur (A.fromList ls ((Unsafe.toLinear Ur) Linear.. (scramble size))))
   b False "CilkSort" size input fseq fpar fparm
   where
     fseq, fpar, fparm :: A.Array a %1-> A.Array a
@@ -123,7 +125,7 @@ bQuickSort _ty size = do
     fseq = Quick.sort
 
 scramble :: A.Elt a => Int -> A.Array a %1-> A.Array a
-scramble n = Unsafe.toLinear (go 0 0)
+scramble n = Unsafe.toLinear (go 1 0)
   where
     myrand curr = curr * 1103515245 + 12345
     go rng i arr

@@ -68,8 +68,8 @@ sortInplaceParM = Unsafe.toLinear go
 writeSort1Par, writeSort2Par :: (Ord a, A.Elt a) => A.Array a -> A.Array a -> A.Array a
 writeSort1Par src tmp =
   let (Ur n, src1) = A.size src in
-    -- if n < 2048 then (tmp `lseq` Quick.sortInplace' src1) else
-    if n < 2048 then writeSort1 src1 tmp else
+    if n < 2048 then (tmp `lseq` Quick.sortInplace' src1) else
+    -- if n < 2048 then writeSort1 src1 tmp else
       let (src_l, src_r) = A.splitMid src
           (tmp_l, tmp_r) = A.splitMid tmp
           tmp_l1 = writeSort2Par src_l tmp_l
@@ -79,8 +79,8 @@ writeSort1Par src tmp =
 
 writeSort2Par src tmp =
   let (Ur n, src1) = A.size src in
-    -- if n < 2048 then Quick.sortInplace' (P.copyParAndGetDst (src1, tmp) 0 0 n) else
-    if n < 2048 then writeSort2 src1 tmp else
+    if n < 2048 then Quick.sortInplace' (P.copyParAndGetDst (src1, tmp) 0 0 n) else
+    -- if n < 2048 then writeSort2 src1 tmp else
       let (src_l, src_r) = A.splitMid src
           (tmp_l, tmp_r) = A.splitMid tmp
           src_l1 = writeSort1Par src_l tmp_l
@@ -117,8 +117,8 @@ writeMergePar left0 right0 dst0 =
 writeSort1ParM, writeSort2ParM :: (Ord a, A.Elt a) => A.Array a -> A.Array a -> Par.Par (A.Array a)
 writeSort1ParM src tmp =
   let (Ur n, src1) = A.size src in
-    -- if n < 2048 then pure $ (tmp `lseq` Quick.sortInplace' src1) else
-    if n < 2048 then pure $ writeSort1 src1 tmp else
+    if n < 2048 then pure $ (tmp `lseq` Quick.sortInplace' src1) else
+    -- if n < 2048 then pure $ writeSort1 src1 tmp else
       let (src_l, src_r) = A.splitMid src
           (tmp_l, tmp_r) = A.splitMid tmp
       in do tmp_l1_f <- Par.spawn_ $ writeSort2ParM src_l tmp_l
@@ -128,8 +128,8 @@ writeSort1ParM src tmp =
 
 writeSort2ParM src tmp =
   let (Ur n, src1) = A.size src in
-    -- if n < 2048 then (P.copyParMAndGetDst (src1, tmp) 0 0 n) >>= \a -> pure (Quick.sortInplace' a) else
-    if n < 2048 then pure $ writeSort2 src1 tmp else
+    if n < 2048 then (P.copyParMAndGetDst (src1, tmp) 0 0 n) >>= \a -> pure (Quick.sortInplace' a) else
+    -- if n < 2048 then pure $ writeSort2 src1 tmp else
       let (src_l, src_r) = A.splitMid src
           (tmp_l, tmp_r) = A.splitMid tmp
       in do src_l1_f <- Par.spawn_ $ writeSort1ParM src_l tmp_l
