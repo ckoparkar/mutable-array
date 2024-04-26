@@ -11,7 +11,9 @@ import qualified Data.Array.Mutable.Prelude as A
 
 --------------------------------------------------------------------------------
 
-sort :: (Ord a, A.Elt a) => A.Array a %1-> A.Array a
+{-# INLINE sort #-}
+{-# INLINE sortInplace #-}
+sort, sortInplace :: (Ord a, A.Elt a) => A.Array a %1-> A.Array a
 sort = Unsafe.toLinear go
   where
     go src =
@@ -19,7 +21,6 @@ sort = Unsafe.toLinear go
           (src2, dst)  = A.copy (src1, A.makeNoFill n) 0 0 n
       in src2 `lseq` sortInplace dst
 
-sortInplace :: (Ord a, A.Elt a) => A.Array a %1-> A.Array a
 sortInplace = Unsafe.toLinear go
   where
     go src =

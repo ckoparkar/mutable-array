@@ -12,6 +12,7 @@ import qualified Data.Array.Mutable.Prelude as A
 
 --------------------------------------------------------------------------------
 
+{-# INLINE sort #-}
 sort, sortInplace :: (Ord a, A.Elt a) => A.Array a %1-> A.Array a
 sort = Unsafe.toLinear go
   where
