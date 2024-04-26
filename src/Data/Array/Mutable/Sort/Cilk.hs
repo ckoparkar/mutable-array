@@ -2,8 +2,8 @@
 {-# LANGUAGE LinearTypes  #-}
 
 module Data.Array.Mutable.Sort.Cilk
-  ( sort, sortPar, sortParM
-  , sortInplace, sortInplacePar, sortInplaceParM ) where
+  ( sort, sortPar, sortPar4, sortParM, sortParM4
+  , sortInplace, sortInplacePar, sortInplacePar4, sortInplaceParM, sortInplaceParM4 ) where
 
 import           GHC.Conc ( par, pseq )
 import           Data.Unrestricted.Linear ( Ur(..), lseq )
@@ -18,54 +18,89 @@ import qualified Data.Array.Mutable.Prelude as A
 
 --------------------------------------------------------------------------------
 
-sort, sortPar :: (Ord a, A.Elt a) => A.Array a %1-> A.Array a
-sort = Unsafe.toLinear go
-  where
-    go src =
-      let (Ur n, src1) = A.size src
-          (src2, dst)  = A.copy (src1, A.makeNoFill n) 0 0 n
-      in src2 `lseq` sortInplace dst
+sort, sortPar, sortPar4, sortInplace, sortInplacePar, sortInplacePar4 ::
+  (Ord a, A.Elt a) => A.Array a %1-> A.Array a
+sort            = sort' A.copy    sortInplace
+sortPar         = sort' P.copyPar sortInplacePar
+sortPar4        = sort' P.copyPar sortInplacePar4
+sortInplace     = sortInplace' writeSort1
+sortInplacePar  = sortInplace' writeSort1Par
+sortInplacePar4 = sortInplace' writeSortPar4
 
-sortPar = Unsafe.toLinear go
+sort' :: (Ord a, A.Elt a)
+      => ((A.Array a, A.Array a) %1-> Int -> Int -> Int -> (A.Array a, A.Array a))
+      -> (A.Array a %1-> A.Array a)
+      -> A.Array a %1-> A.Array a
+sort' copyFn sortInplaceFn = Unsafe.toLinear go
   where
     go src =
       let (Ur n, src1) = A.size src
-          (src2, dst)  = P.copyPar (src1, A.makeNoFill n) 0 0 n
-      in src2 `lseq` sortInplacePar dst
+          (src2, dst)  = copyFn (src1, A.makeNoFill n) 0 0 n
+      in src2 `lseq` sortInplaceFn dst
 
-sortInplace, sortInplacePar :: (Ord a, A.Elt a) => A.Array a %1-> A.Array a
-sortInplace = Unsafe.toLinear go
+sortInplace' :: (Ord a, A.Elt a)
+             => (A.Array a -> A.Array a -> A.Array a)
+             -> A.Array a %1-> A.Array a
+sortInplace' f = Unsafe.toLinear go
   where
     go src =
       let (Ur n, src1) = A.size src
-      in writeSort1 src1 (A.makeNoFill n)
+      in f src1 (A.makeNoFill n)
 
-sortInplacePar = Unsafe.toLinear go
-  where
-    go src =
-      let (Ur n, src1) = A.size src
-      in writeSort1Par src1 (A.makeNoFill n)
+--------------------------------------------------------------------------------
 
-sortParM, sortInplaceParM :: (Ord a, A.Elt a) => A.Array a %1-> Par.Par (A.Array a)
-sortParM = Unsafe.toLinear go
+sortParM, sortParM4, sortInplaceParM, sortInplaceParM4 ::
+  (Ord a, A.Elt a) => A.Array a %1-> Par.Par (A.Array a)
+sortParM         = sortParM' P.copyParM sortInplaceParM
+sortParM4        = sortParM' P.copyParM sortInplaceParM4
+sortInplaceParM  = sortInplaceParM' writeSort1ParM
+sortInplaceParM4 = sortInplaceParM' writeSortParM4
+
+sortParM' :: (Ord a, A.Elt a)
+          => ((A.Array a, A.Array a) %1-> Int -> Int -> Int -> Par.Par (A.Array a, A.Array a))
+          -> (A.Array a %1-> Par.Par (A.Array a))
+          -> A.Array a %1-> Par.Par (A.Array a)
+sortParM' copyFn sortInplaceFn = Unsafe.toLinear go
   where
     go src =
       let (Ur n, src1) = A.size src
-      in do (src2, dst) <- P.copyParM (src1, A.makeNoFill n) 0 0 n
-            dst1 <- sortInplaceParM dst
+      in do (src2, dst) <- copyFn (src1, A.makeNoFill n) 0 0 n
+            dst1 <- sortInplaceFn dst
             pure $ src2 `lseq` dst1
 
-sortInplaceParM = Unsafe.toLinear go
+sortInplaceParM' :: (Ord a, A.Elt a)
+                 => (A.Array a -> A.Array a -> Par.Par (A.Array a))
+                 -> A.Array a %1-> Par.Par (A.Array a)
+sortInplaceParM' f = Unsafe.toLinear go
   where
     go src =
       let (Ur n, src1) = A.size src
-      in writeSort1ParM src1 (A.makeNoFill n)
+      in f src1 (A.makeNoFill n)
 
 --------------------------------------------------------------------------------
 -- Parallel
 --------------------------------------------------------------------------------
 
-writeSort1Par, writeSort2Par :: (Ord a, A.Elt a) => A.Array a -> A.Array a -> A.Array a
+writeSortPar4, writeSort1Par, writeSort2Par ::
+  (Ord a, A.Elt a) => A.Array a -> A.Array a -> A.Array a
+writeSortPar4 src tmp =
+  let (Ur n, src1) = A.size src in
+    if n < 2048 then (tmp `lseq` Quick.sortInplace' src1) else
+    -- if n < 2048 then writeSort1 src1 tmp else
+      let (src_l, src_r)   = A.splitMid src
+          (src_ll, src_lr) = A.splitMid src_l
+          (src_rl, src_rr) = A.splitMid src_r
+          (tmp_l, tmp_r)   = A.splitMid tmp
+          (tmp_ll, tmp_lr) = A.splitMid tmp_l
+          (tmp_rl, tmp_rr) = A.splitMid tmp_r
+          src_ll1 = writeSortPar4 src_ll tmp_ll
+          src_lr1 = writeSortPar4 src_lr tmp_lr
+          src_rl1 = writeSortPar4 src_rl tmp_rl
+          src_rr1 = writeSortPar4 src_rr tmp_rr
+          merged1 = src_ll1 `par` src_lr1 `pseq` writeMergePar src_ll1 src_lr1 tmp_l
+          merged2 = src_rl1 `par` src_rr1 `pseq` writeMergePar src_rl1 src_rr1 tmp_r
+      in merged1 `par` merged2 `pseq` writeMergePar merged1 merged2 src
+
 writeSort1Par src tmp =
   let (Ur n, src1) = A.size src in
     if n < 2048 then (tmp `lseq` Quick.sortInplace' src1) else
@@ -114,7 +149,32 @@ writeMergePar left0 right0 dst0 =
 
 --------------------------------------------------------------------------------
 
-writeSort1ParM, writeSort2ParM :: (Ord a, A.Elt a) => A.Array a -> A.Array a -> Par.Par (A.Array a)
+writeSortParM4, writeSort1ParM, writeSort2ParM ::
+  (Ord a, A.Elt a) => A.Array a -> A.Array a -> Par.Par (A.Array a)
+writeSortParM4 src tmp =
+  let (Ur n, src1) = A.size src in
+    if n < 2048 then pure $ (tmp `lseq` Quick.sortInplace' src1) else
+    -- if n < 2048 then pure $ writeSort1 src1 tmp else
+      let (src_l, src_r)   = A.splitMid src
+          (src_ll, src_lr) = A.splitMid src_l
+          (src_rl, src_rr) = A.splitMid src_r
+          (tmp_l, tmp_r)   = A.splitMid tmp
+          (tmp_ll, tmp_lr) = A.splitMid tmp_l
+          (tmp_rl, tmp_rr) = A.splitMid tmp_r
+      in do src_ll1_f <- Par.spawn_ $ writeSortParM4 src_ll tmp_ll
+            src_lr1_f <- Par.spawn_ $ writeSortParM4 src_lr tmp_lr
+            src_rl1_f <- Par.spawn_ $ writeSortParM4 src_rl tmp_rl
+            src_rr1_f <- Par.spawn_ $ writeSortParM4 src_rr tmp_rr
+            src_ll1 <- Par.get src_ll1_f
+            src_lr1 <- Par.get src_lr1_f
+            src_rl1 <- Par.get src_rl1_f
+            src_rr1 <- Par.get src_rr1_f
+            merged1_f <- Par.spawn_ $ writeMergeParM src_ll1 src_lr1 tmp_l
+            merged2_f <- Par.spawn_ $ writeMergeParM src_rl1 src_rr1 tmp_r
+            merged1 <- Par.get merged1_f
+            merged2 <- Par.get merged2_f
+            writeMergeParM merged1 merged2 src
+
 writeSort1ParM src tmp =
   let (Ur n, src1) = A.size src in
     if n < 2048 then pure $ (tmp `lseq` Quick.sortInplace' src1) else

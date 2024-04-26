@@ -52,7 +52,9 @@ propTests =
     , mergesort
     , cilksort
     , cilksortpar
+    , cilksortpar4
     , cilksortparm
+    , cilksortparm4
     ]
   where
     bigN = 10000
@@ -209,16 +211,28 @@ propTests =
           unur (A.fromList ls1 (A.toList Linear.. Cilk.sortInplace))
           === L.sort ls1
 
-    cilksortpar = testProperty "Parallel cilk sort" $
+    cilksortpar = testProperty "Parallel cilk sort (split 2-way)" $
       \((NonEmpty ls) :: NonEmptyList Int) ->
         let ls1 = take bigN (cycle ls) in
           unur (A.fromList ls1 (A.toList Linear.. Cilk.sortInplacePar))
+          === L.sort ls1
+
+    cilksortpar4 = testProperty "Parallel cilk sort (split 4-way)" $
+      \((NonEmpty ls) :: NonEmptyList Int) ->
+        let ls1 = take bigN (cycle ls) in
+          unur (A.fromList ls1 (A.toList Linear.. Cilk.sortInplacePar4))
           === L.sort ls1
 
     cilksortparm = testProperty "Parallel cilk sort (ParM)" $
       \((NonEmpty ls) :: NonEmptyList Int) ->
         let ls1 = take bigN (cycle ls) in
           unur (A.fromList ls1 (A.toList Linear.. (Unsafe.toLinear Par.runPar) Linear.. Cilk.sortInplaceParM))
+          === L.sort ls1
+
+    cilksortparm4 = testProperty "Parallel cilk sort (ParM split 4-way)" $
+      \((NonEmpty ls) :: NonEmptyList Int) ->
+        let ls1 = take bigN (cycle ls) in
+          unur (A.fromList ls1 (A.toList Linear.. (Unsafe.toLinear Par.runPar) Linear.. Cilk.sortInplaceParM4))
           === L.sort ls1
 
 setN :: A.Array Int %1-> Int -> Int -> Int -> A.Array Int

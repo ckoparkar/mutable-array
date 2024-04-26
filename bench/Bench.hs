@@ -106,12 +106,16 @@ bCilkSort _ty size = do
   --     !input = force (unur (A.fromList ls (Unsafe.toLinear Ur)))
   let ls = [0..(fromIntegral size - 1)] :: [a]
       !input = force (unur (A.fromList ls ((Unsafe.toLinear Ur) Linear.. (scramble size))))
-  b False "CilkSort" size input fseq fpar fparm
+  split2 <- b False "Split 2-way" size input fseq fpar fparm
+  split4 <- b False "Split 4-way" size input fseq fpar4 fparm4
+  pure $ bgroup "CilkSort" [split2, split4]
   where
-    fseq, fpar, fparm :: A.Array a %1-> A.Array a
+    fseq, fpar, fparm, fpar4, fparm4 :: A.Array a %1-> A.Array a
     fseq = Cilk.sort
     fpar = Cilk.sortPar
     fparm = (Unsafe.toLinear Par.runPar) Linear.. Cilk.sortParM
+    fpar4 = Cilk.sortPar4
+    fparm4 = (Unsafe.toLinear Par.runPar) Linear.. Cilk.sortParM4
 
 bQuickSort :: forall a. (Ord a, Show a, Random a, NFData a, Num a, A.Elt a) =>
              Proxy a -> Int -> IO Benchmark
